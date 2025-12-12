@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, CheckCircle, Clock, Calendar, Trash2, Edit2, Loader2 } from "lucide-react";
+import { Plus, CheckCircle, Clock, Calendar, Trash2, Edit2, Loader2, Trophy, Star } from "lucide-react";
 import { format } from "date-fns";
 
 interface Task {
@@ -27,6 +26,14 @@ interface Task {
   created_at: string;
   completed_at: string | null;
 }
+
+const getXPForTask = (priority: string | null, estimatedMinutes: number | null) => {
+  let base = 20;
+  if (priority === "high") base = 50;
+  else if (priority === "medium") base = 30;
+  if (estimatedMinutes && estimatedMinutes > 60) base += 10;
+  return base;
+};
 
 export default function Tasks() {
   const { user } = useAuth();
@@ -91,7 +98,7 @@ export default function Tasks() {
       } else {
         const { error } = await supabase.from("tasks").insert(taskData);
         if (error) throw error;
-        toast({ title: "Task created successfully" });
+        toast({ title: "Quest added!", description: `Complete it to earn XP!` });
       }
 
       setIsDialogOpen(false);
@@ -116,9 +123,16 @@ export default function Tasks() {
 
       if (error) throw error;
       fetchTasks();
-      toast({
-        title: newStatus === "completed" ? "Task completed! 🎉" : "Task reopened",
-      });
+      
+      if (newStatus === "completed") {
+        const xp = getXPForTask(task.priority, task.estimated_minutes);
+        toast({
+          title: "Quest completed! 🎉",
+          description: `You earned ${xp} XP!`,
+        });
+      } else {
+        toast({ title: "Quest reopened" });
+      }
     } catch (error) {
       console.error("Error updating task:", error);
     }
@@ -129,7 +143,7 @@ export default function Tasks() {
       const { error } = await supabase.from("tasks").delete().eq("id", id);
       if (error) throw error;
       fetchTasks();
-      toast({ title: "Task deleted" });
+      toast({ title: "Quest removed" });
     } catch (error) {
       console.error("Error deleting task:", error);
     }
@@ -160,119 +174,118 @@ export default function Tasks() {
     setIsDialogOpen(true);
   };
 
-  const getPriorityColor = (priority: string | null) => {
-    switch (priority) {
-      case "high": return "bg-destructive text-destructive-foreground";
-      case "medium": return "bg-warning text-warning-foreground";
-      case "low": return "bg-success text-success-foreground";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
-
   const pendingTasks = tasks.filter((t) => t.status !== "completed");
   const completedTasks = tasks.filter((t) => t.status === "completed");
+  
+  const totalXP = completedTasks.reduce((acc, task) => acc + getXPForTask(task.priority, task.estimated_minutes), 0);
 
   return (
     <AppLayout>
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Tasks</h1>
-            <p className="mt-1 text-muted-foreground">Manage your assignments and to-dos</p>
+            <h1 className="text-3xl font-bold">Quests & Tasks</h1>
+            <p className="mt-1 text-muted-foreground">Manage your daily goals and earn XP.</p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button className="focus-gradient gap-2">
-                <Plus className="h-4 w-4" /> Add Task
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingTask ? "Edit Task" : "Create New Task"}</DialogTitle>
-                <DialogDescription>
-                  {editingTask ? "Update your task details" : "Add a new task to your list"}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title *</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Study for exam..."
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Add details..."
-                    rows={3}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded-full bg-warning/10 border border-warning/30 px-4 py-2">
+              <Trophy className="h-5 w-5 text-warning" />
+              <span className="font-bold">Total XP: {totalXP}</span>
+            </div>
+            <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button className="focus-gradient gap-2">
+                  <Plus className="h-4 w-4" /> Add Quest
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{editingTask ? "Edit Quest" : "Create New Quest"}</DialogTitle>
+                  <DialogDescription>
+                    {editingTask ? "Update your quest details" : "Add a new quest to earn XP"}
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select
-                      value={formData.priority}
-                      onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="subject">Subject</Label>
+                    <Label htmlFor="title">Quest Title *</Label>
                     <Input
-                      id="subject"
-                      value={formData.subject}
-                      onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                      placeholder="Math, Science..."
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="due_date">Due Date</Label>
-                    <Input
-                      id="due_date"
-                      type="date"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Complete Physics Chapter 4..."
+                      required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="estimated_minutes">Est. Minutes</Label>
-                    <Input
-                      id="estimated_minutes"
-                      type="number"
-                      value={formData.estimated_minutes}
-                      onChange={(e) => setFormData({ ...formData, estimated_minutes: e.target.value })}
-                      placeholder="60"
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Add details..."
+                      rows={3}
                     />
                   </div>
-                </div>
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" className="focus-gradient">
-                    {editingTask ? "Update" : "Create"} Task
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="priority">Priority</Label>
+                      <Select
+                        value={formData.priority}
+                        onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low (20 XP)</SelectItem>
+                          <SelectItem value="medium">Medium (30 XP)</SelectItem>
+                          <SelectItem value="high">High (50 XP)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subject">Category</Label>
+                      <Input
+                        id="subject"
+                        value={formData.subject}
+                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                        placeholder="Study, Work..."
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="due_date">Due Date</Label>
+                      <Input
+                        id="due_date"
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="estimated_minutes">Est. Minutes</Label>
+                      <Input
+                        id="estimated_minutes"
+                        type="number"
+                        value={formData.estimated_minutes}
+                        onChange={(e) => setFormData({ ...formData, estimated_minutes: e.target.value })}
+                        placeholder="60"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="focus-gradient">
+                      {editingTask ? "Update" : "Create"} Quest
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {loading ? (
@@ -280,121 +293,91 @@ export default function Tasks() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          <div className="space-y-8">
-            {/* Pending Tasks */}
-            <div>
-              <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                Pending ({pendingTasks.length})
-              </h2>
-              {pendingTasks.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <CheckCircle className="mb-2 h-12 w-12 text-muted-foreground/50" />
-                    <p className="text-muted-foreground">No pending tasks. Great job!</p>
-                  </CardContent>
-                </Card>
+          <Card className="border-border/50">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Active Quests</CardTitle>
+                <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="focus-gradient">Add Quest</Button>
+                  </DialogTrigger>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pendingTasks.length === 0 && completedTasks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <CheckCircle className="mb-2 h-12 w-12 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">No quests yet. Add one to start earning XP!</p>
+                </div>
               ) : (
-                <div className="space-y-3">
-                  {pendingTasks.map((task) => (
-                    <Card key={task.id} className="group transition-all hover:border-primary/30">
-                      <CardContent className="flex items-start gap-4 p-4">
-                        <Checkbox
-                          checked={task.status === "completed"}
-                          onCheckedChange={() => toggleComplete(task)}
-                          className="mt-1"
-                        />
+                <>
+                  {pendingTasks.map((task) => {
+                    const xp = getXPForTask(task.priority, task.estimated_minutes);
+                    return (
+                      <div
+                        key={task.id}
+                        className="group flex items-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-4 transition-all hover:border-primary/40"
+                      >
+                        <button
+                          onClick={() => toggleComplete(task)}
+                          className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-primary/50 transition-colors hover:bg-primary/20"
+                        >
+                          <div className="h-2 w-2 rounded-full" />
+                        </button>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-medium">{task.title}</h3>
-                            <Badge className={getPriorityColor(task.priority)}>
-                              {task.priority}
-                            </Badge>
-                            {task.subject && (
-                              <Badge variant="outline">{task.subject}</Badge>
-                            )}
-                          </div>
-                          {task.description && (
-                            <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                              {task.description}
-                            </p>
+                          <h3 className="font-medium">{task.title}</h3>
+                          {task.subject && (
+                            <p className="text-sm text-muted-foreground">{task.subject}</p>
                           )}
-                          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                            {task.due_date && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(task.due_date), "MMM d, yyyy")}
-                              </span>
-                            )}
-                            {task.estimated_minutes && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {task.estimated_minutes} min
-                              </span>
-                            )}
-                          </div>
                         </div>
+                        <Badge variant="secondary" className="bg-warning/20 text-warning border-warning/30 gap-1">
+                          {xp} XP <Star className="h-3 w-3 fill-warning" />
+                        </Badge>
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditDialog(task)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(task)}>
                             <Edit2 className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteTask(task.id)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </div>
+                      </div>
+                    );
+                  })}
 
-            {/* Completed Tasks */}
-            {completedTasks.length > 0 && (
-              <div>
-                <h2 className="mb-4 text-lg font-semibold flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-success" />
-                  Completed ({completedTasks.length})
-                </h2>
-                <div className="space-y-3">
-                  {completedTasks.map((task) => (
-                    <Card key={task.id} className="opacity-60">
-                      <CardContent className="flex items-start gap-4 p-4">
-                        <Checkbox
-                          checked={true}
-                          onCheckedChange={() => toggleComplete(task)}
-                          className="mt-1"
-                        />
-                        <div className="flex-1">
-                          <h3 className="font-medium line-through">{task.title}</h3>
-                          {task.completed_at && (
-                            <p className="text-xs text-muted-foreground">
-                              Completed {format(new Date(task.completed_at), "MMM d, yyyy")}
-                            </p>
+                  {completedTasks.map((task) => {
+                    const xp = getXPForTask(task.priority, task.estimated_minutes);
+                    return (
+                      <div
+                        key={task.id}
+                        className="group flex items-center gap-4 rounded-xl border border-success/20 bg-success/5 p-4 opacity-60"
+                      >
+                        <button
+                          onClick={() => toggleComplete(task)}
+                          className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-success bg-success transition-colors"
+                        >
+                          <CheckCircle className="h-4 w-4 text-success-foreground" />
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium line-through text-muted-foreground">{task.title}</h3>
+                          {task.subject && (
+                            <p className="text-sm text-muted-foreground">{task.subject}</p>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteTask(task.id)}
-                        >
+                        <Badge variant="secondary" className="bg-muted text-muted-foreground gap-1">
+                          {xp} XP <Star className="h-3 w-3" />
+                        </Badge>
+                        <Button variant="ghost" size="icon" onClick={() => deleteTask(task.id)} className="opacity-0 group-hover:opacity-100">
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </CardContent>
+          </Card>
         )}
       </div>
     </AppLayout>
