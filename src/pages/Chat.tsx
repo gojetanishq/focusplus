@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,8 +16,11 @@ import {
   Lightbulb,
   FileText,
   CheckCircle,
-  AlertTriangle,
   Sparkles,
+  AlertCircle,
+  Search,
+  Trash2,
+  ThumbsDown,
 } from "lucide-react";
 
 interface Message {
@@ -28,6 +31,7 @@ interface Message {
   sources?: { file: string; chunk: string; quote: string }[] | null;
   thinking_steps?: string[] | null;
   created_at: string;
+  isFallback?: boolean;
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
@@ -37,12 +41,17 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isFallbackMode, setIsFallbackMode] = useState(false);
   const [conversationId] = useState(() => crypto.randomUUID());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const clearConversation = () => {
+    setMessages([]);
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
@@ -86,6 +95,8 @@ export default function Chat() {
       if (!response.ok) {
         throw new Error("Failed to get AI response");
       }
+
+      setIsFallbackMode(false);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -196,15 +207,19 @@ export default function Chat() {
       });
     } catch (error) {
       console.error("Error sending message:", error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: "Sorry, I encountered an error. Please try again.",
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      setIsFallbackMode(true);
+      
+      // Fallback response
+      const fallbackResponse: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: `I understand you're asking about "${userMessage.content}". In fallback mode, I can provide general guidance, but for detailed explainable responses, please ensure the AI API is running.`,
+        reasoning: "conceptual",
+        isFallback: true,
+        created_at: new Date().toISOString(),
+      };
+      
+      setMessages((prev) => [...prev, fallbackResponse]);
     } finally {
       setLoading(false);
     }
@@ -220,14 +235,24 @@ export default function Chat() {
   return (
     <AppLayout>
       <div className="flex h-screen flex-col p-8 pt-4">
-        <div className="mb-4">
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Brain className="h-8 w-8 text-primary" />
-            AI Assistant
-          </h1>
-          <p className="mt-1 text-muted-foreground">
-            Explainable AI that shows its reasoning and sources
-          </p>
+        {/* Header with Fallback indicator */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl focus-gradient">
+                <Brain className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Focus Assistant</h1>
+                {isFallbackMode && (
+                  <div className="flex items-center gap-1 text-xs text-warning">
+                    <AlertCircle className="h-3 w-3" />
+                    Fallback Mode
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         <Card className="flex-1 flex flex-col overflow-hidden">
@@ -269,10 +294,18 @@ export default function Chat() {
                           : "bg-muted"
                       }`}
                     >
+                      {/* Reasoning indicator for assistant */}
+                      {message.role === "assistant" && message.reasoning && (
+                        <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
+                          <Search className="h-3 w-3" />
+                          Reasoning: {message.reasoning}
+                        </div>
+                      )}
+                      
                       <p className="whitespace-pre-wrap">{message.content}</p>
 
                       {/* Explainable AI Components */}
-                      {message.role === "assistant" && (message.reasoning || message.sources || message.thinking_steps) && (
+                      {message.role === "assistant" && (message.sources || message.thinking_steps) && !message.isFallback && (
                         <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
                           {message.thinking_steps && message.thinking_steps.length > 0 && (
                             <Collapsible>
@@ -293,25 +326,6 @@ export default function Chat() {
                                     </p>
                                   ))}
                                 </div>
-                              </CollapsibleContent>
-                            </Collapsible>
-                          )}
-
-                          {message.reasoning && (
-                            <Collapsible>
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm" className="w-full justify-between h-auto py-2">
-                                  <span className="flex items-center gap-2 text-xs">
-                                    <Lightbulb className="h-3 w-3 text-warning" />
-                                    Reasoning
-                                  </span>
-                                  <ChevronDown className="h-3 w-3" />
-                                </Button>
-                              </CollapsibleTrigger>
-                              <CollapsibleContent>
-                                <p className="mt-2 text-xs text-muted-foreground bg-warning/10 rounded p-2">
-                                  {message.reasoning}
-                                </p>
                               </CollapsibleContent>
                             </Collapsible>
                           )}
@@ -374,7 +388,7 @@ export default function Chat() {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask me anything... I'll show my reasoning"
+                placeholder="Ask for advice..."
                 disabled={loading}
                 className="flex-1"
               />
@@ -382,6 +396,21 @@ export default function Chat() {
                 <Send className="h-4 w-4" />
               </Button>
             </form>
+            
+            {/* Footer actions */}
+            <div className="flex items-center gap-4 mt-3 text-xs">
+              <button 
+                onClick={clearConversation}
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear conversation
+              </button>
+              <button className="text-destructive hover:text-destructive/80 flex items-center gap-1 transition-colors">
+                <ThumbsDown className="h-3 w-3" />
+                Disagree
+              </button>
+            </div>
           </div>
         </Card>
       </div>

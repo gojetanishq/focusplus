@@ -66,17 +66,36 @@ export default function Settings() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
+      // First check if profile exists
+      const { data: existing } = await supabase
         .from("profiles")
-        .upsert({
-          user_id: user!.id,
-          full_name: profile.full_name,
-          study_goal: profile.study_goal,
-          daily_focus_hours: profile.daily_focus_hours,
-          notification_enabled: profile.notification_enabled,
-          theme_preference: profile.theme_preference,
-          updated_at: new Date().toISOString(),
-        });
+        .select("id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+
+      const profileData = {
+        user_id: user!.id,
+        full_name: profile.full_name,
+        study_goal: profile.study_goal,
+        daily_focus_hours: profile.daily_focus_hours,
+        notification_enabled: profile.notification_enabled,
+        theme_preference: profile.theme_preference,
+        updated_at: new Date().toISOString(),
+      };
+
+      let error;
+      if (existing) {
+        // Update existing profile
+        ({ error } = await supabase
+          .from("profiles")
+          .update(profileData)
+          .eq("user_id", user!.id));
+      } else {
+        // Insert new profile
+        ({ error } = await supabase
+          .from("profiles")
+          .insert(profileData));
+      }
 
       if (error) throw error;
       toast({ title: "Settings saved successfully" });
