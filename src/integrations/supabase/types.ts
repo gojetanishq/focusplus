@@ -210,6 +210,41 @@ export type Database = {
         }
         Relationships: []
       }
+      task_reviews: {
+        Row: {
+          comments: string | null
+          created_at: string
+          difficulty_rating: number
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          difficulty_rating: number
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          difficulty_rating?: number
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_reviews_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
