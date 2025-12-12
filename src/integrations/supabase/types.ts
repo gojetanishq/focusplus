@@ -50,12 +50,48 @@ export type Database = {
         }
         Relationships: []
       }
+      folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          parent_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          parent_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           content: string | null
           created_at: string
           file_type: string | null
           file_url: string | null
+          folder_id: string | null
           id: string
           subject: string | null
           tags: string[] | null
@@ -68,6 +104,7 @@ export type Database = {
           created_at?: string
           file_type?: string | null
           file_url?: string | null
+          folder_id?: string | null
           id?: string
           subject?: string | null
           tags?: string[] | null
@@ -80,6 +117,7 @@ export type Database = {
           created_at?: string
           file_type?: string | null
           file_url?: string | null
+          folder_id?: string | null
           id?: string
           subject?: string | null
           tags?: string[] | null
@@ -87,7 +125,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notes_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
