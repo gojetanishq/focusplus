@@ -39,7 +39,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export default function Chat() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -91,6 +91,7 @@ export default function Chat() {
           ]),
           conversationId,
           userId: user!.id,
+          language, // Pass the selected language to the AI
         }),
       });
 
@@ -228,10 +229,10 @@ export default function Chat() {
   };
 
   const suggestedPrompts = [
-    "Explain photosynthesis and show your reasoning",
-    "Help me create a study plan for my exam",
-    "What are the key concepts I should focus on?",
-    "Analyze the difficulty of calculus topics",
+    t("chat.prompt1"),
+    t("chat.prompt2"),
+    t("chat.prompt3"),
+    t("chat.prompt4"),
   ];
 
   return (
@@ -264,14 +265,14 @@ export default function Chat() {
                 <div className="rounded-full bg-primary/10 p-4 mb-4">
                   <Sparkles className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="text-xl font-semibold mb-2">How can I help you study?</h2>
+                <h2 className="text-xl font-semibold mb-2">{t("chat.welcomeTitle")}</h2>
                 <p className="text-muted-foreground text-center max-w-md mb-6">
-                  I provide transparent, explainable answers with sources and reasoning you can verify.
+                  {t("chat.welcomeDesc")}
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2 max-w-lg">
-                  {suggestedPrompts.map((prompt) => (
+                  {suggestedPrompts.map((prompt, index) => (
                     <Button
-                      key={prompt}
+                      key={index}
                       variant="outline"
                       className="justify-start text-left h-auto py-3 px-4"
                       onClick={() => setInput(prompt)}
@@ -406,11 +407,11 @@ export default function Chat() {
                 className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
               >
                 <Trash2 className="h-3 w-3" />
-                Clear conversation
+                {t("chat.clearConversation")}
               </button>
               <button className="text-destructive hover:text-destructive/80 flex items-center gap-1 transition-colors">
                 <ThumbsDown className="h-3 w-3" />
-                Disagree
+                {t("chat.disagree")}
               </button>
             </div>
           </div>

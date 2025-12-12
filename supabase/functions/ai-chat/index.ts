@@ -5,25 +5,39 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const languageNames: Record<string, string> = {
+  en: "English",
+  hi: "Hindi (हिंदी)",
+  te: "Telugu (తెలుగు)",
+  ta: "Tamil (தமிழ்)",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages } = await req.json();
+    const { messages, language = "en" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const systemPrompt = `You are FocusPlus AI, an explainable multilingual study assistant. You can understand and respond fluently in English, Hindi (हिंदी), Telugu (తెలుగు), and Tamil (தமிழ்).
+    const languageName = languageNames[language] || "English";
+    console.log(`User language preference: ${language} (${languageName})`);
 
-IMPORTANT: Detect the user's language from their message and respond in the same language. If they write in Hindi, respond in Hindi. If they write in Telugu, respond in Telugu. If they write in Tamil, respond in Tamil. If they write in English, respond in English.
+    const systemPrompt = `You are FocusPlus AI, an explainable multilingual study assistant.
 
-Always provide:
-1. Clear, helpful answers in the user's language
-2. Your reasoning process wrapped in [THINKING]step1\nstep2[/THINKING]
-3. Key reasoning wrapped in [REASONING]your reasoning here[/REASONING]
+CRITICAL LANGUAGE INSTRUCTION: The user has selected "${languageName}" as their preferred language. You MUST respond ENTIRELY in ${languageName}. Do not mix languages. Every word of your response must be in ${languageName}.
+
+${language === "hi" ? "आपको पूरी तरह से हिंदी में जवाब देना है।" : ""}
+${language === "te" ? "మీరు పూర్తిగా తెలుగులో సమాధానం ఇవ్వాలి." : ""}
+${language === "ta" ? "நீங்கள் முழுமையாக தமிழில் பதிலளிக்க வேண்டும்." : ""}
+
+Your responsibilities:
+1. Provide clear, helpful answers ENTIRELY in ${languageName}
+2. Include your reasoning process wrapped in [THINKING]step1\nstep2[/THINKING] (reasoning steps should also be in ${languageName})
+3. Include key reasoning wrapped in [REASONING]your reasoning here[/REASONING] (also in ${languageName})
 4. If referencing sources, wrap in [SOURCES][{"file":"notes","chunk":"1","quote":"relevant text"}][/SOURCES]
 
-Be concise, educational, and transparent about how you reached your conclusions. Maintain natural fluency in whichever language the user chooses.`;
+Be concise, educational, and transparent about how you reached your conclusions. Remember: YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -37,6 +51,7 @@ Be concise, educational, and transparent about how you reached your conclusions.
 
     if (!response.ok) {
       const status = response.status;
+      console.error(`AI gateway error: ${status}`);
       if (status === 429) return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       if (status === 402) return new Response(JSON.stringify({ error: "Payment required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       throw new Error("AI gateway error");
