@@ -73,25 +73,29 @@ export function PdfViewer({ fileUrl, title }: PdfViewerProps) {
   }, [fileUrl]);
 
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center bg-muted/30 px-4 py-2">
+    <div className="h-full w-full overflow-auto bg-muted/30 px-4 py-2">
       {loading && !error && (
-        <p className="text-sm text-muted-foreground mb-2">Loading PDF preview...</p>
+        <p className="text-sm text-muted-foreground mb-2 text-center">
+          Loading PDF preview...
+        </p>
       )}
 
       {error && (
-        <div className="flex flex-col items-center text-center text-muted-foreground gap-2 mb-2 max-w-md">
+        <div className="flex flex-col items-center text-center text-muted-foreground gap-2 mb-2 max-w-md mx-auto">
           <File className="h-10 w-10" />
           <p className="text-sm font-medium">{error}</p>
         </div>
       )}
 
-      <canvas
-        ref={canvasRef}
-        aria-label={title ? `Preview of ${title}` : "PDF preview"}
-        className={`max-w-full max-h-full rounded-md shadow-sm bg-background ${
-          error ? "hidden" : ""
-        }`}
-      />
+      <div className="flex justify-center">
+        <canvas
+          ref={canvasRef}
+          aria-label={title ? `Preview of ${title}` : "PDF preview"}
+          className={`h-auto w-auto max-w-full rounded-md shadow-sm bg-background ${
+            error ? "hidden" : ""
+          }`}
+        />
+      </div>
     </div>
   );
 }
