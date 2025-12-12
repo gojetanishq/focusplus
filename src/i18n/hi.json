@@ -65,7 +65,10 @@
     "recentActivity": "हालिया गतिविधि",
     "upcomingTasks": "आगामी कार्य",
     "recentFiles": "हालिया फाइलें",
-    "recentFilesDesc": "आपकी हाल ही में एक्सेस की गई नोट्स"
+    "recentFilesDesc": "आपकी हाल ही में एक्सेस की गई नोट्स",
+    "todaysAgenda": "आज का एजेंडा",
+    "viewCalendar": "कैलेंडर देखें",
+    "noTasksToday": "आज के लिए कोई कार्य निर्धारित नहीं"
   },
   "notes": {
     "title": "नोट्स",

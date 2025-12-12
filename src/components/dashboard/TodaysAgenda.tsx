@@ -128,11 +128,11 @@ export function TodaysAgenda() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 text-primary" />
-              Today's Agenda
+              {t("dashboard.todaysAgenda")}
             </CardTitle>
             <Link to="/planner">
               <Button variant="link" size="sm" className="text-primary">
-                View Calendar
+                {t("dashboard.viewCalendar")}
               </Button>
             </Link>
           </div>
@@ -145,7 +145,7 @@ export function TodaysAgenda() {
           ) : pendingTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Calendar className="mb-2 h-12 w-12 text-muted-foreground/50" />
-              <p className="text-muted-foreground">No tasks scheduled for today</p>
+              <p className="text-muted-foreground">{t("dashboard.noTasksToday")}</p>
               <Link to="/tasks">
                 <Button variant="link" className="mt-2">{t("tasks.addTask")}</Button>
               </Link>

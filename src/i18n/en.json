@@ -51,7 +51,10 @@
     "recentActivity": "Recent Activity",
     "upcomingTasks": "Upcoming Tasks",
     "recentFiles": "Recent Files",
-    "recentFilesDesc": "Your recently accessed notes"
+    "recentFilesDesc": "Your recently accessed notes",
+    "todaysAgenda": "Today's Agenda",
+    "viewCalendar": "View Calendar",
+    "noTasksToday": "No tasks scheduled for today"
   },
   "common": {
     "loading": "Loading...",
