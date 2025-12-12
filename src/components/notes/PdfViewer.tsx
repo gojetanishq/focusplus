@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as pdfjs from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
-import { File } from "lucide-react";
+import { File, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -14,20 +15,53 @@ export function PdfViewer({ fileUrl, title }: PdfViewerProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const pdfDocRef = useRef<pdfjs.PDFDocumentProxy | null>(null);
 
+  // Load PDF document
   useEffect(() => {
     let cancelled = false;
 
-    const renderPage = async () => {
+    const loadPdf = async () => {
       try {
         setLoading(true);
         setError(null);
+        setCurrentPage(1);
 
         const loadingTask = pdfjs.getDocument(fileUrl);
         const pdf = await loadingTask.promise;
         if (cancelled) return;
 
-        const page = await pdf.getPage(1);
+        pdfDocRef.current = pdf;
+        setTotalPages(pdf.numPages);
+      } catch (err) {
+        console.error("Error loading PDF", err);
+        setError("Unable to load PDF. You can still open the file in a new tab from the toolbar.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadPdf();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fileUrl]);
+
+  // Render current page
+  useEffect(() => {
+    if (!pdfDocRef.current || totalPages === 0) return;
+
+    let cancelled = false;
+
+    const renderPage = async () => {
+      try {
+        const pdf = pdfDocRef.current!;
+        const page = await pdf.getPage(currentPage);
+        if (cancelled) return;
+
         const viewport = page.getViewport({ scale: 1.25 });
 
         const canvas = canvasRef.current;
@@ -54,14 +88,7 @@ export function PdfViewer({ fileUrl, title }: PdfViewerProps) {
           canvas,
         } as any).promise;
       } catch (err) {
-        console.error("Error rendering PDF preview", err);
-        setError(
-          "Unable to load PDF preview. You can still open the file in a new tab from the toolbar.",
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        console.error("Error rendering PDF page", err);
       }
     };
 
@@ -70,10 +97,18 @@ export function PdfViewer({ fileUrl, title }: PdfViewerProps) {
     return () => {
       cancelled = true;
     };
-  }, [fileUrl]);
+  }, [currentPage, totalPages]);
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
 
   return (
-    <div className="h-full w-full overflow-auto bg-muted/30 px-4 py-2">
+    <div className="h-full w-full overflow-auto bg-muted/30 px-4 py-2 flex flex-col">
       {loading && !error && (
         <p className="text-sm text-muted-foreground mb-2 text-center">
           Loading PDF preview...
@@ -87,7 +122,31 @@ export function PdfViewer({ fileUrl, title }: PdfViewerProps) {
         </div>
       )}
 
-      <div className="flex justify-center">
+      {totalPages > 1 && !error && (
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToPrevPage}
+            disabled={currentPage <= 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToNextPage}
+            disabled={currentPage >= totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      <div className="flex justify-center flex-1">
         <canvas
           ref={canvasRef}
           aria-label={title ? `Preview of ${title}` : "PDF preview"}
