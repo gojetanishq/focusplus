@@ -130,7 +130,15 @@
     "thinkingProcess": "Thinking Process",
     "newConversation": "New Conversation",
     "fallbackMode": "Fallback Mode",
-    "fallbackModeDesc": "AI is running in demo mode"
+    "fallbackModeDesc": "AI is running in demo mode",
+    "welcomeTitle": "How can I help you study?",
+    "welcomeDesc": "I provide transparent, explainable answers with sources and reasoning you can verify.",
+    "clearConversation": "Clear conversation",
+    "disagree": "Disagree",
+    "prompt1": "Explain photosynthesis and show your reasoning",
+    "prompt2": "Help me create a study plan for my exam",
+    "prompt3": "What are the key concepts I should focus on?",
+    "prompt4": "Analyze the difficulty of calculus topics"
   },
   "achievements": {
     "title": "Achievements",
