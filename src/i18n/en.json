@@ -1,17 +1,4 @@
 {
-  "common": {
-    "loading": "Loading...",
-    "save": "Save",
-    "cancel": "Cancel",
-    "delete": "Delete",
-    "edit": "Edit",
-    "add": "Add",
-    "close": "Close",
-    "submit": "Submit",
-    "error": "An error occurred",
-    "success": "Success",
-    "confirm": "Confirm"
-  },
   "nav": {
     "dashboard": "Dashboard",
     "planner": "Planner",
@@ -62,7 +49,35 @@
     "hoursStudied": "Hours Studied",
     "quickActions": "Quick Actions",
     "recentActivity": "Recent Activity",
-    "upcomingTasks": "Upcoming Tasks"
+    "upcomingTasks": "Upcoming Tasks",
+    "recentFiles": "Recent Files",
+    "recentFilesDesc": "Your recently accessed notes"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "close": "Close",
+    "submit": "Submit",
+    "error": "An error occurred",
+    "success": "Success",
+    "confirm": "Confirm",
+    "viewAll": "View All"
+  },
+  "notes": {
+    "title": "Notes",
+    "addNote": "Add Note",
+    "newNote": "New Note",
+    "noteTitle": "Note Title",
+    "noteContent": "Content",
+    "uploadFile": "Upload File",
+    "noNotes": "No notes yet. Create your first note!",
+    "noFiles": "No files yet",
+    "tags": "Tags",
+    "subject": "Subject"
   },
   "planner": {
     "title": "Study Planner",
@@ -101,17 +116,6 @@
     "pending": "Pending",
     "inProgress": "In Progress",
     "xpEarned": "XP Earned"
-  },
-  "notes": {
-    "title": "Notes",
-    "addNote": "Add Note",
-    "newNote": "New Note",
-    "noteTitle": "Note Title",
-    "noteContent": "Content",
-    "uploadFile": "Upload File",
-    "noNotes": "No notes yet. Create your first note!",
-    "tags": "Tags",
-    "subject": "Subject"
   },
   "chat": {
     "title": "AI Chat",

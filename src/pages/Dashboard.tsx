@@ -28,6 +28,13 @@ interface DashboardStats {
   todaySessions: number;
 }
 
+interface RecentNote {
+  id: string;
+  title: string;
+  file_type: string | null;
+  updated_at: string;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
@@ -38,6 +45,7 @@ export default function Dashboard() {
     totalStudyMinutes: 0,
     todaySessions: 0,
   });
+  const [recentNotes, setRecentNotes] = useState<RecentNote[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,10 +56,11 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const [tasksRes, notesRes, sessionsRes] = await Promise.all([
+      const [tasksRes, notesRes, sessionsRes, recentNotesRes] = await Promise.all([
         supabase.from("tasks").select("*").eq("user_id", user!.id),
         supabase.from("notes").select("id").eq("user_id", user!.id),
         supabase.from("study_sessions").select("*").eq("user_id", user!.id),
+        supabase.from("notes").select("id, title, file_type, updated_at").eq("user_id", user!.id).order("updated_at", { ascending: false }).limit(5),
       ]);
 
       const tasks = tasksRes.data || [];
@@ -68,6 +77,7 @@ export default function Dashboard() {
         totalStudyMinutes: sessions.reduce((acc, s) => acc + s.duration_minutes, 0),
         todaySessions: todaySessions.length,
       });
+      setRecentNotes(recentNotesRes.data || []);
     } catch (error) {
       console.error("Error fetching stats:", error);
     } finally {
@@ -179,6 +189,53 @@ export default function Dashboard() {
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* Recent Files */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    {t("dashboard.recentFiles")}
+                  </CardTitle>
+                  <CardDescription>{t("dashboard.recentFilesDesc")}</CardDescription>
+                </div>
+                <Link to="/notes">
+                  <Button variant="outline" size="sm">{t("common.viewAll")}</Button>
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {recentNotes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <FileText className="mb-2 h-12 w-12 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">{t("notes.noFiles")}</p>
+                  <Link to="/notes">
+                    <Button variant="link" className="mt-2">{t("notes.uploadFile")}</Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {recentNotes.map((note) => (
+                    <Link key={note.id} to="/notes" className="block">
+                      <div className="flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-muted/50">
+                        <div className="rounded-md bg-primary/10 p-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{note.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {note.file_type?.toUpperCase() || "Note"} • {new Date(note.updated_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Study Insights */}
           <Card>
             <CardHeader>
