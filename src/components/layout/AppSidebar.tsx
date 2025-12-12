@@ -12,21 +12,23 @@ import {
   Brain,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
-
-const navItems = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/planner", icon: Calendar, label: "Planner" },
-  { to: "/tasks", icon: CheckSquare, label: "Tasks" },
-  { to: "/notes", icon: FileText, label: "Notes" },
-  { to: "/chat", icon: MessageSquare, label: "AI Assistant" },
-  { to: "/achievements", icon: Trophy, label: "Achievements" },
-  { to: "/settings", icon: Settings, label: "Settings" },
-];
 
 export function AppSidebar() {
   const location = useLocation();
   const { signOut, user } = useAuth();
+  const { t } = useLanguage();
+
+  const navItems = [
+    { to: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
+    { to: "/planner", icon: Calendar, labelKey: "nav.planner" },
+    { to: "/tasks", icon: CheckSquare, labelKey: "nav.tasks" },
+    { to: "/notes", icon: FileText, labelKey: "nav.notes" },
+    { to: "/chat", icon: MessageSquare, labelKey: "nav.chat" },
+    { to: "/achievements", icon: Trophy, labelKey: "nav.achievements" },
+    { to: "/settings", icon: Settings, labelKey: "nav.settings" },
+  ];
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-sidebar-border bg-sidebar">
@@ -55,7 +57,7 @@ export function AppSidebar() {
                 )}
               >
                 <item.icon className="h-5 w-5" />
-                {item.label}
+                {t(item.labelKey)}
               </NavLink>
             );
           })}
@@ -81,7 +83,7 @@ export function AppSidebar() {
             className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive"
           >
             <LogOut className="h-4 w-4" />
-            Sign out
+            {t("nav.logout")}
           </Button>
         </div>
       </div>

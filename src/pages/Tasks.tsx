@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, CheckCircle, Clock, Calendar, Trash2, Edit2, Loader2, Trophy, Star } from "lucide-react";
 import { format } from "date-fns";
@@ -38,6 +39,7 @@ const getXPForTask = (priority: string | null, estimatedMinutes: number | null) 
 export default function Tasks() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -184,30 +186,30 @@ export default function Tasks() {
       <div className="p-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Quests & Tasks</h1>
-            <p className="mt-1 text-muted-foreground">Manage your daily goals and earn XP.</p>
+            <h1 className="text-3xl font-bold">{t("tasks.title")}</h1>
+            <p className="mt-1 text-muted-foreground">{t("tasks.xpEarned")}</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 rounded-full bg-warning/10 border border-warning/30 px-4 py-2">
               <Trophy className="h-5 w-5 text-warning" />
-              <span className="font-bold">Total XP: {totalXP}</span>
+              <span className="font-bold">{t("tasks.totalXP")}: {totalXP}</span>
             </div>
             <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button className="focus-gradient gap-2">
-                  <Plus className="h-4 w-4" /> Add Quest
+                  <Plus className="h-4 w-4" /> {t("tasks.addTask")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>{editingTask ? "Edit Quest" : "Create New Quest"}</DialogTitle>
+                  <DialogTitle>{editingTask ? t("common.edit") : t("tasks.newTask")}</DialogTitle>
                   <DialogDescription>
-                    {editingTask ? "Update your quest details" : "Add a new quest to earn XP"}
+                    {editingTask ? t("common.edit") : t("tasks.addTask")}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="title">Quest Title *</Label>
+                    <Label htmlFor="title">{t("tasks.taskTitle")} *</Label>
                     <Input
                       id="title"
                       value={formData.title}

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Brain,
@@ -38,6 +39,7 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export default function Chat() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -243,11 +245,11 @@ export default function Chat() {
                 <Brain className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-xl font-bold">Focus Assistant</h1>
+                <h1 className="text-xl font-bold">{t("chat.title")}</h1>
                 {isFallbackMode && (
                   <div className="flex items-center gap-1 text-xs text-warning">
                     <AlertCircle className="h-3 w-3" />
-                    Fallback Mode
+                    {t("chat.fallbackMode")}
                   </div>
                 )}
               </div>
@@ -298,7 +300,7 @@ export default function Chat() {
                       {message.role === "assistant" && message.reasoning && (
                         <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
                           <Search className="h-3 w-3" />
-                          Reasoning: {message.reasoning}
+                          {t("chat.reasoning")}: {message.reasoning}
                         </div>
                       )}
                       
@@ -313,7 +315,7 @@ export default function Chat() {
                                 <Button variant="ghost" size="sm" className="w-full justify-between h-auto py-2">
                                   <span className="flex items-center gap-2 text-xs">
                                     <CheckCircle className="h-3 w-3 text-success" />
-                                    Thinking Process ({message.thinking_steps.length} steps)
+                                    {t("chat.thinkingProcess")} ({message.thinking_steps.length})
                                   </span>
                                   <ChevronDown className="h-3 w-3" />
                                 </Button>
@@ -336,7 +338,7 @@ export default function Chat() {
                                 <Button variant="ghost" size="sm" className="w-full justify-between h-auto py-2">
                                   <span className="flex items-center gap-2 text-xs">
                                     <FileText className="h-3 w-3 text-info" />
-                                    Sources ({message.sources.length})
+                                    {t("chat.sources")} ({message.sources.length})
                                   </span>
                                   <ChevronDown className="h-3 w-3" />
                                 </Button>
@@ -388,7 +390,7 @@ export default function Chat() {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask for advice..."
+                placeholder={t("chat.placeholder")}
                 disabled={loading}
                 className="flex-1"
               />
