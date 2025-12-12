@@ -65,7 +65,10 @@
     "recentActivity": "ఇటీవలి కార్యకలాపం",
     "upcomingTasks": "రాబోయే టాస్క్‌లు",
     "recentFiles": "ఇటీవలి ఫైల్స్",
-    "recentFilesDesc": "మీరు ఇటీవల యాక్సెస్ చేసిన నోట్స్"
+    "recentFilesDesc": "మీరు ఇటీవల యాక్సెస్ చేసిన నోట్స్",
+    "todaysAgenda": "నేటి ఎజెండా",
+    "viewCalendar": "క్యాలెండర్ చూడండి",
+    "noTasksToday": "నేటికి టాస్క్‌లు షెడ్యూల్ చేయబడలేదు"
   },
   "notes": {
     "title": "నోట్స్",
