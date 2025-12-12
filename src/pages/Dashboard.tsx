@@ -179,44 +179,6 @@ export default function Dashboard() {
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Upcoming Tasks */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-primary" />
-                    {t("dashboard.upcomingTasks")}
-                  </CardTitle>
-                  <CardDescription>{t("tasks.priority")}</CardDescription>
-                </div>
-                <Link to="/tasks">
-                  <Button variant="outline" size="sm">{t("common.edit")}</Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {stats.totalTasks === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <CheckSquare className="mb-2 h-12 w-12 text-muted-foreground/50" />
-                  <p className="text-muted-foreground">{t("tasks.noTasks")}</p>
-                  <Link to="/tasks">
-                    <Button variant="link" className="mt-2">{t("tasks.addTask")}</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="rounded-lg border border-border p-4">
-                    <p className="font-medium">{t("tasks.pending")}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {stats.totalTasks - stats.completedTasks} {t("tasks.pending")}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Study Insights */}
           <Card>
             <CardHeader>
