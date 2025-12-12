@@ -14,6 +14,7 @@ import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, CheckCircle, Clock, Calendar, Trash2, Edit2, Loader2, Trophy, Star } from "lucide-react";
 import { format } from "date-fns";
+import { TaskReviewDialog } from "@/components/tasks/TaskReviewDialog";
 
 interface Task {
   id: string;
@@ -44,6 +45,8 @@ export default function Tasks() {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [taskToReview, setTaskToReview] = useState<Task | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -114,29 +117,100 @@ export default function Tasks() {
 
   const toggleComplete = async (task: Task) => {
     const newStatus = task.status === "completed" ? "pending" : "completed";
+    
+    if (newStatus === "completed") {
+      // Show review dialog before completing
+      setTaskToReview(task);
+      setReviewDialogOpen(true);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("tasks")
         .update({
-          status: newStatus,
-          completed_at: newStatus === "completed" ? new Date().toISOString() : null,
+          status: "pending",
+          completed_at: null,
         })
         .eq("id", task.id);
 
       if (error) throw error;
       fetchTasks();
-      
-      if (newStatus === "completed") {
-        const xp = getXPForTask(task.priority, task.estimated_minutes);
-        toast({
-          title: "Quest completed! 🎉",
-          description: `You earned ${xp} XP!`,
-        });
-      } else {
-        toast({ title: "Quest reopened" });
-      }
+      toast({ title: "Quest reopened" });
     } catch (error) {
       console.error("Error updating task:", error);
+    }
+  };
+
+  const completeTaskWithReview = async (rating: number, comments: string) => {
+    if (!taskToReview) return;
+
+    try {
+      // Update task status
+      const { error: taskError } = await supabase
+        .from("tasks")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", taskToReview.id);
+
+      if (taskError) throw taskError;
+
+      // Insert review
+      const { error: reviewError } = await supabase
+        .from("task_reviews")
+        .insert({
+          task_id: taskToReview.id,
+          user_id: user!.id,
+          difficulty_rating: rating,
+          comments: comments || null,
+        });
+
+      if (reviewError) throw reviewError;
+
+      const xp = getXPForTask(taskToReview.priority, taskToReview.estimated_minutes);
+      toast({
+        title: "Quest completed! 🎉",
+        description: `You earned ${xp} XP! Thanks for your review.`,
+      });
+
+      fetchTasks();
+    } catch (error) {
+      console.error("Error completing task:", error);
+      toast({ title: "Failed to complete task", variant: "destructive" });
+    } finally {
+      setReviewDialogOpen(false);
+      setTaskToReview(null);
+    }
+  };
+
+  const skipReviewAndComplete = async () => {
+    if (!taskToReview) return;
+
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", taskToReview.id);
+
+      if (error) throw error;
+
+      const xp = getXPForTask(taskToReview.priority, taskToReview.estimated_minutes);
+      toast({
+        title: "Quest completed! 🎉",
+        description: `You earned ${xp} XP!`,
+      });
+
+      fetchTasks();
+    } catch (error) {
+      console.error("Error completing task:", error);
+    } finally {
+      setReviewDialogOpen(false);
+      setTaskToReview(null);
     }
   };
 
@@ -381,6 +455,16 @@ export default function Tasks() {
             </CardContent>
           </Card>
         )}
+
+        {/* Review Dialog */}
+        <TaskReviewDialog
+          open={reviewDialogOpen}
+          onOpenChange={setReviewDialogOpen}
+          taskTitle={taskToReview?.title || ""}
+          taskSubject={taskToReview?.subject || null}
+          onSubmit={completeTaskWithReview}
+          onSkip={skipReviewAndComplete}
+        />
       </div>
     </AppLayout>
   );
