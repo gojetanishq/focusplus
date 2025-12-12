@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ export default function Auth() {
   const [errors, setErrors] = useState<{ email?: string; password?: string; fullName?: string }>({});
 
   const { signIn, signUp, user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -66,29 +68,29 @@ export default function Auth() {
         if (error) {
           if (error.message.includes("already registered")) {
             toast({
-              title: "Account exists",
-              description: "This email is already registered. Please sign in instead.",
+              title: t("common.error"),
+              description: t("auth.hasAccount"),
               variant: "destructive",
             });
           } else {
             toast({
-              title: "Sign up failed",
+              title: t("common.error"),
               description: error.message,
               variant: "destructive",
             });
           }
         } else {
           toast({
-            title: "Welcome to FocusPlus!",
-            description: "Your account has been created successfully.",
+            title: t("common.success"),
+            description: t("auth.createAccount"),
           });
         }
       } else {
         const { error } = await signIn(email, password);
         if (error) {
           toast({
-            title: "Sign in failed",
-            description: "Invalid email or password. Please try again.",
+            title: t("common.error"),
+            description: t("common.error"),
             variant: "destructive",
           });
         }
@@ -111,7 +113,7 @@ export default function Auth() {
           className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to home
+          {t("landing.title")}
         </Link>
 
         <Card className="border-border/50 shadow-xl">
@@ -119,18 +121,18 @@ export default function Auth() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl focus-gradient">
               <Brain className="h-7 w-7 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl">{isSignUp ? "Create your account" : "Welcome back"}</CardTitle>
+            <CardTitle className="text-2xl">{isSignUp ? t("auth.createAccount") : t("auth.welcomeBack")}</CardTitle>
             <CardDescription>
               {isSignUp
-                ? "Start your journey to smarter studying"
-                : "Sign in to continue your learning"}
+                ? t("auth.signupSubtitle")
+                : t("auth.loginSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
+                  <Label htmlFor="fullName">{t("auth.fullName")}</Label>
                   <Input
                     id="fullName"
                     placeholder="John Doe"
@@ -145,7 +147,7 @@ export default function Auth() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("auth.email")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -160,7 +162,7 @@ export default function Auth() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("auth.password")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -176,29 +178,29 @@ export default function Auth() {
 
               <Button type="submit" className="w-full focus-gradient" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isSignUp ? "Create Account" : "Sign In"}
+                {isSignUp ? t("auth.signup") : t("auth.login")}
               </Button>
             </form>
 
             <div className="mt-6 text-center text-sm">
               {isSignUp ? (
                 <p className="text-muted-foreground">
-                  Already have an account?{" "}
+                  {t("auth.hasAccount")}{" "}
                   <button
                     onClick={() => setIsSignUp(false)}
                     className="font-medium text-primary hover:underline"
                   >
-                    Sign in
+                    {t("auth.login")}
                   </button>
                 </p>
               ) : (
                 <p className="text-muted-foreground">
-                  Don't have an account?{" "}
+                  {t("auth.noAccount")}{" "}
                   <button
                     onClick={() => setIsSignUp(true)}
                     className="font-medium text-primary hover:underline"
                   >
-                    Sign up
+                    {t("auth.signup")}
                   </button>
                 </p>
               )}

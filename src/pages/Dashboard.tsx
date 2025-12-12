@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Calendar,
@@ -28,6 +29,7 @@ interface DashboardStats {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [stats, setStats] = useState<DashboardStats>({
     totalTasks: 0,
     completedTasks: 0,
@@ -77,10 +79,10 @@ export default function Dashboard() {
   const studyMins = stats.totalStudyMinutes % 60;
 
   const quickActions = [
-    { label: "Add Task", icon: Plus, to: "/tasks", color: "bg-primary" },
-    { label: "Upload Notes", icon: FileText, to: "/notes", color: "bg-accent" },
-    { label: "Start Session", icon: Clock, to: "/planner", color: "bg-success" },
-    { label: "AI Chat", icon: MessageSquare, to: "/chat", color: "bg-info" },
+    { labelKey: "tasks.addTask", icon: Plus, to: "/tasks", color: "bg-primary" },
+    { labelKey: "notes.uploadFile", icon: FileText, to: "/notes", color: "bg-accent" },
+    { labelKey: "planner.startSession", icon: Clock, to: "/planner", color: "bg-success" },
+    { labelKey: "nav.chat", icon: MessageSquare, to: "/chat", color: "bg-info" },
   ];
 
   return (
@@ -89,25 +91,25 @@ export default function Dashboard() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
-            Welcome back,{" "}
+            {t("dashboard.welcome")},{" "}
             <span className="focus-gradient-text">
               {user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Student"}
             </span>
           </h1>
-          <p className="mt-1 text-muted-foreground">Here's your study overview for today</p>
+          <p className="mt-1 text-muted-foreground">{t("dashboard.todaysFocus")}</p>
         </div>
 
         {/* Quick Actions */}
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           {quickActions.map((action) => (
-            <Link key={action.label} to={action.to}>
+            <Link key={action.labelKey} to={action.to}>
               <Card className="group cursor-pointer transition-all hover:border-primary/50 hover:shadow-md">
                 <CardContent className="flex items-center gap-4 p-4">
                   <div className={`rounded-lg ${action.color} p-2.5`}>
                     <action.icon className="h-5 w-5 text-primary-foreground" />
                   </div>
                   <span className="font-medium group-hover:text-primary transition-colors">
-                    {action.label}
+                    {t(action.labelKey)}
                   </span>
                 </CardContent>
               </Card>
@@ -119,7 +121,7 @@ export default function Dashboard() {
         <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Task Progress</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.tasksCompleted")}</CardTitle>
               <CheckSquare className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -128,43 +130,43 @@ export default function Dashboard() {
               </div>
               <Progress value={taskProgress} className="mt-2" />
               <p className="mt-2 text-xs text-muted-foreground">
-                {taskProgress.toFixed(0)}% completed
+                {taskProgress.toFixed(0)}% {t("tasks.completed")}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Study Time</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("dashboard.hoursStudied")}</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
                 {studyHours}h {studyMins}m
               </div>
-              <p className="mt-2 text-xs text-muted-foreground">Total time focused</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("planner.sessionCompleted")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Notes</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("notes.title")}</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalNotes}</div>
-              <p className="mt-2 text-xs text-muted-foreground">Documents uploaded</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("notes.uploadFile")}</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Today's Sessions</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">{t("planner.todaySchedule")}</CardTitle>
               <Flame className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.todaySessions}</div>
-              <p className="mt-2 text-xs text-muted-foreground">Focus sessions today</p>
+              <p className="mt-2 text-xs text-muted-foreground">{t("planner.sessionActive")}</p>
             </CardContent>
           </Card>
         </div>
@@ -178,12 +180,12 @@ export default function Dashboard() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-5 w-5 text-primary" />
-                    Upcoming Tasks
+                    {t("dashboard.upcomingTasks")}
                   </CardTitle>
-                  <CardDescription>Your priority tasks for today</CardDescription>
+                  <CardDescription>{t("tasks.priority")}</CardDescription>
                 </div>
                 <Link to="/tasks">
-                  <Button variant="outline" size="sm">View All</Button>
+                  <Button variant="outline" size="sm">{t("common.edit")}</Button>
                 </Link>
               </div>
             </CardHeader>
@@ -191,17 +193,17 @@ export default function Dashboard() {
               {stats.totalTasks === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CheckSquare className="mb-2 h-12 w-12 text-muted-foreground/50" />
-                  <p className="text-muted-foreground">No tasks yet</p>
+                  <p className="text-muted-foreground">{t("tasks.noTasks")}</p>
                   <Link to="/tasks">
-                    <Button variant="link" className="mt-2">Create your first task</Button>
+                    <Button variant="link" className="mt-2">{t("tasks.addTask")}</Button>
                   </Link>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="rounded-lg border border-border p-4">
-                    <p className="font-medium">View your tasks</p>
+                    <p className="font-medium">{t("tasks.pending")}</p>
                     <p className="text-sm text-muted-foreground">
-                      You have {stats.totalTasks - stats.completedTasks} pending tasks
+                      {stats.totalTasks - stats.completedTasks} {t("tasks.pending")}
                     </p>
                   </div>
                 </div>
@@ -216,32 +218,31 @@ export default function Dashboard() {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
-                    Study Insights
+                    {t("landing.smartPlanning")}
                   </CardTitle>
-                  <CardDescription>AI-powered analysis of your progress</CardDescription>
+                  <CardDescription>{t("landing.smartPlanningDesc")}</CardDescription>
                 </div>
                 <Link to="/chat">
-                  <Button variant="outline" size="sm">Ask AI</Button>
+                  <Button variant="outline" size="sm">{t("nav.chat")}</Button>
                 </Link>
               </div>
             </CardHeader>
             <CardContent>
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
                 <p className="text-sm">
-                  <span className="font-medium text-primary">💡 Tip:</span> Use the AI Assistant to get
-                  personalized study recommendations based on your notes and progress.
+                  <span className="font-medium text-primary">💡 {t("landing.aiChat")}:</span> {t("landing.aiChatDesc")}
                 </p>
               </div>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div className="rounded-lg bg-muted p-3 text-center">
                   <Calendar className="mx-auto mb-1 h-5 w-5 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">This Week</p>
-                  <p className="font-semibold">{stats.todaySessions} sessions</p>
+                  <p className="text-xs text-muted-foreground">{t("planner.todaySchedule")}</p>
+                  <p className="font-semibold">{stats.todaySessions}</p>
                 </div>
                 <div className="rounded-lg bg-muted p-3 text-center">
                   <Flame className="mx-auto mb-1 h-5 w-5 text-warning" />
-                  <p className="text-xs text-muted-foreground">Streak</p>
-                  <p className="font-semibold">Keep going!</p>
+                  <p className="text-xs text-muted-foreground">{t("dashboard.studyStreak")}</p>
+                  <p className="font-semibold">{t("common.success")}!</p>
                 </div>
               </div>
             </CardContent>

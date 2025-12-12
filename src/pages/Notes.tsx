@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, FileText, Search, Trash2, Eye, Upload, Loader2, File, Download } from "lucide-react";
 import { format } from "date-fns";
@@ -28,6 +29,7 @@ interface Note {
 export default function Notes() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -166,8 +168,8 @@ export default function Notes() {
       <div className="p-8">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Notes</h1>
-            <p className="mt-1 text-muted-foreground">Upload and organize your study materials</p>
+            <h1 className="text-3xl font-bold">{t("notes.title")}</h1>
+            <p className="mt-1 text-muted-foreground">{t("notes.uploadFile")}</p>
           </div>
           <div className="flex gap-2">
             <div className="relative">
