@@ -69,6 +69,7 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
     }
 
     const fileType = note.file_type || "";
+    const fileName = note.title.toLowerCase();
 
     if (fileType.includes("image")) {
       return (
@@ -93,6 +94,32 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
         <iframe
           src={note.file_url}
           className="w-full h-full border-0 rounded-lg bg-background"
+          title={note.title}
+        />
+      );
+    }
+
+    // Office documents: Word, Excel, PowerPoint
+    const isOfficeDoc = 
+      fileType.includes("word") || 
+      fileType.includes("document") ||
+      fileType.includes("spreadsheet") ||
+      fileType.includes("excel") ||
+      fileType.includes("presentation") ||
+      fileType.includes("powerpoint") ||
+      fileName.endsWith(".docx") ||
+      fileName.endsWith(".doc") ||
+      fileName.endsWith(".xlsx") ||
+      fileName.endsWith(".xls") ||
+      fileName.endsWith(".pptx") ||
+      fileName.endsWith(".ppt");
+
+    if (isOfficeDoc) {
+      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(note.file_url)}`;
+      return (
+        <iframe
+          src={viewerUrl}
+          className="w-full h-full border-0"
           title={note.title}
         />
       );
