@@ -104,10 +104,10 @@ export function PlannerCalendar({ tasks, selectedDate, onSelectDate }: PlannerCa
               key={day.toISOString()}
               onClick={() => onSelectDate(day)}
               className={cn(
-                "relative min-h-[100px] p-2 rounded-lg border border-transparent transition-all text-left",
+                "relative min-h-[120px] p-2 rounded-lg border border-border/50 transition-all text-left",
                 "hover:bg-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50",
                 !isCurrentMonth && "opacity-40",
-                isSelected && "border-primary bg-primary/5",
+                isSelected && "border-primary bg-primary/10",
                 isDayToday && !isSelected && "bg-muted/30"
               )}
             >
@@ -123,16 +123,16 @@ export function PlannerCalendar({ tasks, selectedDate, onSelectDate }: PlannerCa
 
               {/* Task Indicators */}
               {dayTasks.length > 0 && (
-                <div className="mt-1 space-y-0.5">
+                <div className="mt-1.5 space-y-1">
                   {dayTasks.slice(0, 3).map((task) => (
                     <div
                       key={task.id}
                       className={cn(
-                        "truncate rounded px-1.5 py-0.5 text-xs",
-                        task.priority === "high" && "bg-destructive/20 text-destructive",
-                        task.priority === "medium" && "bg-warning/20 text-warning-foreground",
-                        task.priority === "low" && "bg-success/20 text-success-foreground",
-                        !task.priority && "bg-muted text-muted-foreground"
+                        "truncate rounded px-1.5 py-1 text-xs font-medium",
+                        task.priority === "high" && "bg-destructive/30 text-foreground",
+                        task.priority === "medium" && "bg-primary/30 text-foreground",
+                        task.priority === "low" && "bg-success/30 text-foreground",
+                        !task.priority && "bg-secondary text-foreground"
                       )}
                     >
                       {task.title}
