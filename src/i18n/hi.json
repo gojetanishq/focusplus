@@ -10,7 +10,8 @@
     "submit": "जमा करें",
     "error": "एक त्रुटि हुई",
     "success": "सफलता",
-    "confirm": "पुष्टि करें"
+    "confirm": "पुष्टि करें",
+    "viewAll": "सभी देखें"
   },
   "nav": {
     "dashboard": "डैशबोर्ड",
@@ -62,7 +63,21 @@
     "hoursStudied": "अध्ययन के घंटे",
     "quickActions": "त्वरित कार्य",
     "recentActivity": "हालिया गतिविधि",
-    "upcomingTasks": "आगामी कार्य"
+    "upcomingTasks": "आगामी कार्य",
+    "recentFiles": "हालिया फाइलें",
+    "recentFilesDesc": "आपकी हाल ही में एक्सेस की गई नोट्स"
+  },
+  "notes": {
+    "title": "नोट्स",
+    "addNote": "नोट जोड़ें",
+    "newNote": "नया नोट",
+    "noteTitle": "नोट शीर्षक",
+    "noteContent": "सामग्री",
+    "uploadFile": "फाइल अपलोड करें",
+    "noNotes": "अभी तक कोई नोट नहीं। अपना पहला नोट बनाएं!",
+    "noFiles": "अभी तक कोई फाइल नहीं",
+    "tags": "टैग",
+    "subject": "विषय"
   },
   "planner": {
     "title": "अध्ययन प्लानर",
@@ -101,17 +116,6 @@
     "pending": "लंबित",
     "inProgress": "प्रगति में",
     "xpEarned": "अर्जित XP"
-  },
-  "notes": {
-    "title": "नोट्स",
-    "addNote": "नोट जोड़ें",
-    "newNote": "नया नोट",
-    "noteTitle": "नोट शीर्षक",
-    "noteContent": "सामग्री",
-    "uploadFile": "फाइल अपलोड करें",
-    "noNotes": "अभी तक कोई नोट नहीं। अपना पहला नोट बनाएं!",
-    "tags": "टैग",
-    "subject": "विषय"
   },
   "chat": {
     "title": "AI चैट",
