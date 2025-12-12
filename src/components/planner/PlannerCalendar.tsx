@@ -54,7 +54,7 @@ export function PlannerCalendar({ tasks, selectedDate, onSelectDate }: PlannerCa
   };
 
   return (
-    <div className="rounded-xl border bg-card p-4">
+    <div className="rounded-xl border bg-card p-4 overflow-x-auto">
       {/* Month Navigation */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">{format(currentMonth, "MMMM yyyy")}</h2>
@@ -80,7 +80,7 @@ export function PlannerCalendar({ tasks, selectedDate, onSelectDate }: PlannerCa
       </div>
 
       {/* Weekday Headers */}
-      <div className="grid grid-cols-7 mb-2">
+      <div className="grid grid-cols-7 gap-1 mb-2" style={{ minWidth: "700px" }}>
         {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((day) => (
           <div
             key={day}
@@ -92,7 +92,7 @@ export function PlannerCalendar({ tasks, selectedDate, onSelectDate }: PlannerCa
       </div>
 
       {/* Calendar Days */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1" style={{ minWidth: "700px" }}>
         {days.map((day) => {
           const dayTasks = getTasksForDay(day);
           const isCurrentMonth = isSameMonth(day, currentMonth);
