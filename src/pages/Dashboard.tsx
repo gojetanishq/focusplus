@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
+import { TodaysAgenda } from "@/components/dashboard/TodaysAgenda";
 import {
   Calendar,
   CheckSquare,
@@ -169,6 +170,11 @@ export default function Dashboard() {
               <p className="mt-2 text-xs text-muted-foreground">{t("planner.sessionActive")}</p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Today's Agenda */}
+        <div className="mb-8">
+          <TodaysAgenda />
         </div>
 
         {/* Main Content Grid */}
