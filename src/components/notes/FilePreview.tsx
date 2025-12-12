@@ -82,12 +82,29 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
     }
 
     if (fileType.includes("pdf")) {
+      // Use object tag with embed fallback for better browser compatibility
       return (
-        <iframe
-          src={note.file_url}
-          className="w-full h-full border-0 rounded-lg"
-          title={note.title}
-        />
+        <div className="h-full w-full flex flex-col">
+          <object
+            data={note.file_url}
+            type="application/pdf"
+            className="w-full flex-1"
+          >
+            <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-8">
+              <File className="h-16 w-16 mb-4" />
+              <p className="text-lg font-medium mb-2">PDF Preview</p>
+              <p className="text-sm text-center mb-4">
+                Your browser cannot display the PDF inline. Click below to open it in a new tab.
+              </p>
+              <a href={note.file_url} target="_blank" rel="noopener noreferrer">
+                <Button className="focus-gradient">
+                  <Download className="h-4 w-4 mr-2" />
+                  Open PDF in New Tab
+                </Button>
+              </a>
+            </div>
+          </object>
+        </div>
       );
     }
 
