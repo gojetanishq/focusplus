@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
-import { User, Bell, Moon, Target, Save, Loader2 } from "lucide-react";
+import { User, Bell, Moon, Target, Save, Loader2, Globe } from "lucide-react";
+import type { Language } from "@/i18n";
 
 interface Profile {
   full_name: string | null;
@@ -23,6 +25,7 @@ interface Profile {
 export default function Settings() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { t, language, setLanguage, languageNames } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<Profile>({
@@ -66,7 +69,6 @@ export default function Settings() {
   const saveProfile = async () => {
     setSaving(true);
     try {
-      // First check if profile exists
       const { data: existing } = await supabase
         .from("profiles")
         .select("id")
@@ -85,23 +87,21 @@ export default function Settings() {
 
       let error;
       if (existing) {
-        // Update existing profile
         ({ error } = await supabase
           .from("profiles")
           .update(profileData)
           .eq("user_id", user!.id));
       } else {
-        // Insert new profile
         ({ error } = await supabase
           .from("profiles")
           .insert(profileData));
       }
 
       if (error) throw error;
-      toast({ title: "Settings saved successfully" });
+      toast({ title: t("settings.profileUpdated") });
     } catch (error) {
       console.error("Error saving profile:", error);
-      toast({ title: "Failed to save settings", variant: "destructive" });
+      toast({ title: t("settings.updateError"), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -129,8 +129,8 @@ export default function Settings() {
     <AppLayout>
       <div className="p-8 max-w-3xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="mt-1 text-muted-foreground">Manage your account and preferences</p>
+          <h1 className="text-3xl font-bold">{t("settings.title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("settings.preferences")}</p>
         </div>
 
         <div className="space-y-6">
@@ -139,22 +139,20 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Profile
+                {t("settings.profile")}
               </CardTitle>
-              <CardDescription>Your personal information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("auth.email")}</Label>
                 <Input id="email" value={user?.email || ""} disabled className="bg-muted" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">{t("settings.fullName")}</Label>
                 <Input
                   id="fullName"
                   value={profile.full_name || ""}
                   onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-                  placeholder="Enter your name"
                 />
               </div>
             </CardContent>
@@ -165,22 +163,20 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5" />
-                Study Goals
+                {t("settings.studyGoal")}
               </CardTitle>
-              <CardDescription>Set your learning objectives</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="studyGoal">Primary Study Goal</Label>
+                <Label htmlFor="studyGoal">{t("settings.studyGoal")}</Label>
                 <Input
                   id="studyGoal"
                   value={profile.study_goal || ""}
                   onChange={(e) => setProfile({ ...profile, study_goal: e.target.value })}
-                  placeholder="e.g., Pass calculus exam, Learn programming"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dailyHours">Daily Focus Hours Target</Label>
+                <Label htmlFor="dailyHours">{t("settings.dailyFocusHours")}</Label>
                 <Select
                   value={String(profile.daily_focus_hours)}
                   onValueChange={(value) =>
@@ -193,7 +189,43 @@ export default function Settings() {
                   <SelectContent>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((hours) => (
                       <SelectItem key={hours} value={String(hours)}>
-                        {hours} hour{hours > 1 ? "s" : ""} per day
+                        {hours} hour{hours > 1 ? "s" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Language Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5" />
+                {t("settings.language")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>{t("settings.language")}</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t("settings.currentLanguage")} <strong>{languageNames[language]}</strong>
+                  </p>
+                  <p className="text-xs text-muted-foreground">{t("settings.languageNote")}</p>
+                </div>
+                <Select
+                  value={language}
+                  onValueChange={(value) => setLanguage(value as Language)}
+                >
+                  <SelectTrigger className="w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(languageNames) as [Language, string][]).map(([code, name]) => (
+                      <SelectItem key={code} value={code}>
+                        {name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -207,15 +239,13 @@ export default function Settings() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Moon className="h-5 w-5" />
-                Preferences
+                {t("settings.preferences")}
               </CardTitle>
-              <CardDescription>Customize your experience</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <Label>Theme</Label>
-                  <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
+                  <Label>{t("settings.theme")}</Label>
                 </div>
                 <Select
                   value={profile.theme_preference || "dark"}
@@ -225,8 +255,8 @@ export default function Settings() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="light">{t("settings.themeLight")}</SelectItem>
+                    <SelectItem value="dark">{t("settings.themeDark")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -235,9 +265,8 @@ export default function Settings() {
                 <div className="space-y-0.5">
                   <Label className="flex items-center gap-2">
                     <Bell className="h-4 w-4" />
-                    Notifications
+                    {t("settings.notifications")}
                   </Label>
-                  <p className="text-sm text-muted-foreground">Receive study reminders</p>
                 </div>
                 <Switch
                   checked={profile.notification_enabled ?? true}
@@ -252,11 +281,11 @@ export default function Settings() {
           {/* Actions */}
           <div className="flex justify-between">
             <Button variant="destructive" onClick={signOut}>
-              Sign Out
+              {t("nav.logout")}
             </Button>
             <Button onClick={saveProfile} disabled={saving} className="focus-gradient gap-2">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Save Changes
+              {t("settings.saveChanges")}
             </Button>
           </div>
         </div>
