@@ -96,6 +96,7 @@ export type Database = {
           daily_focus_hours: number | null
           full_name: string | null
           id: string
+          language_preference: string | null
           notification_enabled: boolean | null
           study_goal: string | null
           theme_preference: string | null
@@ -108,6 +109,7 @@ export type Database = {
           daily_focus_hours?: number | null
           full_name?: string | null
           id?: string
+          language_preference?: string | null
           notification_enabled?: boolean | null
           study_goal?: string | null
           theme_preference?: string | null
@@ -120,6 +122,7 @@ export type Database = {
           daily_focus_hours?: number | null
           full_name?: string | null
           id?: string
+          language_preference?: string | null
           notification_enabled?: boolean | null
           study_goal?: string | null
           theme_preference?: string | null
