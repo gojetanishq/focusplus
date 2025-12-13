@@ -47,14 +47,14 @@ interface AIInsightsPanelProps {
 }
 
 export function AIInsightsPanel({ onViewAnalysis }: AIInsightsPanelProps) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<OptimizationData | null>(null);
   const [showReasoning, setShowReasoning] = useState<string | null>(null);
 
   const fetchInsights = async () => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
     
     setLoading(true);
     try {
@@ -62,9 +62,9 @@ export function AIInsightsPanel({ onViewAnalysis }: AIInsightsPanelProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ userId: user.id }),
+        body: JSON.stringify({}),
       });
 
       if (!response.ok) {
