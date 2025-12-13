@@ -13,6 +13,8 @@ import { QuickAddDialog } from "@/components/planner/QuickAddDialog";
 import { RevisionPlanPanel } from "@/components/planner/RevisionPlanPanel";
 import { MissedSessionDialog } from "@/components/planner/MissedSessionDialog";
 import { ScheduleChangesDialog } from "@/components/planner/ScheduleChangesDialog";
+import { DayTasksDialog } from "@/components/planner/DayTasksDialog";
+import { isSameDay } from "date-fns";
 
 interface Task {
   id: string;
@@ -55,6 +57,7 @@ export default function Planner() {
   const [scheduleChanges, setScheduleChanges] = useState<ScheduleChange[]>([]);
   const [scheduleSummary, setScheduleSummary] = useState("");
   const [applyingChanges, setApplyingChanges] = useState(false);
+  const [dayTasksDialogOpen, setDayTasksDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user) fetchTasks();
@@ -77,6 +80,36 @@ export default function Planner() {
     }
   };
 
+  const handleSelectDate = (date: Date) => {
+    setSelectedDate(date);
+    setDayTasksDialogOpen(true);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .eq("id", taskId)
+        .eq("user_id", user!.id);
+
+      if (error) throw error;
+      
+      toast({ title: "Task deleted", description: "The task has been removed." });
+      fetchTasks();
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast({ title: "Error", description: "Failed to delete task", variant: "destructive" });
+      throw error;
+    }
+  };
+
+  const getTasksForSelectedDate = () => {
+    return tasks.filter((task) => {
+      if (!task.due_date) return false;
+      return isSameDay(new Date(task.due_date), selectedDate);
+    });
+  };
   const handleQuickAdd = async (taskData: {
     title: string;
     subject: string | null;
@@ -281,7 +314,7 @@ export default function Planner() {
           <PlannerCalendar
             tasks={tasks}
             selectedDate={selectedDate}
-            onSelectDate={setSelectedDate}
+            onSelectDate={handleSelectDate}
           />
 
           {/* Right Sidebar */}
@@ -315,6 +348,15 @@ export default function Planner() {
           summary={scheduleSummary}
           onApply={handleApplyScheduleChanges}
           applying={applyingChanges}
+        />
+
+        {/* Day Tasks Dialog */}
+        <DayTasksDialog
+          open={dayTasksDialogOpen}
+          onOpenChange={setDayTasksDialogOpen}
+          selectedDate={selectedDate}
+          tasks={getTasksForSelectedDate()}
+          onDeleteTask={handleDeleteTask}
         />
       </div>
     </AppLayout>
