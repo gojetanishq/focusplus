@@ -19,6 +19,14 @@ serve(async (req) => {
       );
     }
 
+    const jwt = authHeader.replace("Bearer", "").trim();
+    if (!jwt) {
+      return new Response(
+        JSON.stringify({ error: "Invalid authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { applyChanges, proposedChanges } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -38,7 +46,7 @@ serve(async (req) => {
     );
 
     // Get authenticated user from JWT
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser(jwt);
     if (userError || !user) {
       console.error("Auth error:", userError);
       return new Response(
