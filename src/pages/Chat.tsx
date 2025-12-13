@@ -91,7 +91,7 @@ export default function Chat() {
           ]),
           conversationId,
           userId: user!.id,
-          language, // Pass the selected language to the AI
+          language,
         }),
       });
 
