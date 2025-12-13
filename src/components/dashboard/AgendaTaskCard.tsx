@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,7 +45,7 @@ interface AgendaTaskCardProps {
 }
 
 export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [analysis, setAnalysis] = useState<DifficultyAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -64,6 +63,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
           taskTitle: task.title,
           taskDescription: task.description,
           taskSubject: task.subject,
+          language: language,
         },
       });
 
@@ -220,45 +220,49 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                 </div>
 
                 {/* Reasoning Signals */}
-                <div>
-                  <h4 className="flex items-center gap-2 font-medium mb-2 text-sm">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    {t("difficulty.reasoningSignals")}
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {analysis.reasoning_signals.map((signal, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">
-                        {signal}
-                      </Badge>
-                    ))}
+                {analysis.reasoning_signals && analysis.reasoning_signals.length > 0 && (
+                  <div>
+                    <h4 className="flex items-center gap-2 font-medium mb-2 text-sm">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      {t("difficulty.reasoningSignals")}
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {analysis.reasoning_signals.map((signal, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {signal}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Resources Used */}
-                <div>
-                  <h4 className="flex items-center gap-2 font-medium mb-2 text-sm">
-                    <BookOpen className="h-4 w-4 text-primary" />
-                    {t("difficulty.resourcesUsed")}
-                  </h4>
-                  <div className="space-y-2">
-                    {analysis.sources.map((source, i) => (
-                      <div key={i} className="rounded-lg bg-muted/50 p-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="font-medium text-sm">{source.title}</p>
-                            <p className="text-xs text-muted-foreground mt-1 italic">
-                              "{source.description}"
-                            </p>
+                {analysis.sources && analysis.sources.length > 0 && (
+                  <div>
+                    <h4 className="flex items-center gap-2 font-medium mb-2 text-sm">
+                      <BookOpen className="h-4 w-4 text-primary" />
+                      {t("difficulty.resourcesUsed")}
+                    </h4>
+                    <div className="space-y-2">
+                      {analysis.sources.map((source, i) => (
+                        <div key={i} className="rounded-lg bg-muted/50 p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-sm">{source.title}</p>
+                              <p className="text-xs text-muted-foreground mt-1 italic">
+                                "{source.description}"
+                              </p>
+                            </div>
+                            <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                           </div>
-                          <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <Badge variant="outline" className="mt-2 text-xs">
+                            {source.type}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="mt-2 text-xs">
-                          {source.type}
-                        </Badge>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Confidence & Time */}
                 <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t border-border/50">

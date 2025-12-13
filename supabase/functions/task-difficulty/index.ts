@@ -5,20 +5,31 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const languageNames: Record<string, string> = {
+  en: "English",
+  hi: "Hindi",
+  te: "Telugu",
+  ta: "Tamil",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { taskTitle, taskDescription, taskSubject } = await req.json();
+    const { taskTitle, taskDescription, taskSubject, language = "en" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are an educational difficulty analyzer. Given a task or topic, analyze its difficulty level for students. 
+    const langName = languageNames[language] || "English";
+
+    const systemPrompt = `You are an educational difficulty analyzer. Given a task or topic, analyze its difficulty level for students.
+
+CRITICAL: You MUST respond ENTIRELY in ${langName} language. All text including reasoning_summary, reasoning_signals, source titles, and source descriptions MUST be in ${langName}. Do NOT mix languages.
     
 You MUST respond using the suggest_difficulty function with the exact schema provided.
 
@@ -27,14 +38,20 @@ Consider:
 - Prerequisite knowledge needed
 - Abstract vs concrete concepts
 - Time typically needed to master
-- Common student struggles with this topic`;
+- Common student struggles with this topic
+
+IMPORTANT: Always include 2-3 educational resources/sources that support your analysis. These can be:
+- Standard textbooks for this subject
+- University course materials
+- Educational research findings
+- Common curriculum standards`;
 
     const userPrompt = `Analyze the difficulty of this study task:
 Title: ${taskTitle}
 ${taskDescription ? `Description: ${taskDescription}` : ""}
 ${taskSubject ? `Subject: ${taskSubject}` : ""}
 
-Provide a comprehensive difficulty analysis.`;
+Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${langName} language and include educational resources.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -64,30 +81,30 @@ Provide a comprehensive difficulty analysis.`;
                   difficulty_label: {
                     type: "string",
                     enum: ["Easy", "Medium", "Hard", "Expert"],
-                    description: "Human-readable difficulty label",
+                    description: "Human-readable difficulty label (keep in English for consistency)",
                   },
                   reasoning_summary: {
                     type: "array",
                     items: { type: "string" },
-                    description: "List of 4-6 reasons explaining why this topic has this difficulty level",
+                    description: `List of 4-6 reasons explaining why this topic has this difficulty level. MUST be in ${langName}.`,
                   },
                   reasoning_signals: {
                     type: "array",
                     items: { type: "string" },
-                    description: "Short 2-3 word tags describing reasoning aspects (e.g., 'multi step', 'high depth')",
+                    description: `Short 2-3 word tags describing reasoning aspects. MUST be in ${langName}.`,
                   },
                   sources: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        title: { type: "string" },
-                        description: { type: "string" },
-                        type: { type: "string" },
+                        title: { type: "string", description: `Resource title in ${langName}` },
+                        description: { type: "string", description: `Brief description in ${langName}` },
+                        type: { type: "string", description: `Type of resource in ${langName} (e.g., Textbook, Course, Research)` },
                       },
                       required: ["title", "description", "type"],
                     },
-                    description: "Educational resources that informed this analysis",
+                    description: `2-3 educational resources that support this analysis. All text MUST be in ${langName}.`,
                   },
                   confidence: {
                     type: "number",
@@ -142,6 +159,11 @@ Provide a comprehensive difficulty analysis.`;
     }
 
     const analysis = JSON.parse(toolCall.function.arguments);
+
+    // Ensure sources array exists
+    if (!analysis.sources || !Array.isArray(analysis.sources)) {
+      analysis.sources = [];
+    }
 
     return new Response(JSON.stringify(analysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
