@@ -28,7 +28,7 @@ serve(async (req) => {
     console.log(`User language preference: ${language} (${languageName})`);
     console.log(`User ID: ${userId}`);
 
-    // Check if user is asking to add tasks
+    // Check if user is asking about task management
     const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
     const isTaskRequest = lastUserMessage.includes("add task") || 
                           lastUserMessage.includes("create task") ||
@@ -37,13 +37,25 @@ serve(async (req) => {
                           lastUserMessage.includes("remind me to") ||
                           lastUserMessage.includes("i need to") ||
                           lastUserMessage.includes("add these tasks") ||
-                          lastUserMessage.includes("कार्य जोड़") || // Hindi
-                          lastUserMessage.includes("టాస్క్ జోడించు") || // Telugu
-                          lastUserMessage.includes("பணி சேர்க்க"); // Tamil
+                          lastUserMessage.includes("delete task") ||
+                          lastUserMessage.includes("remove task") ||
+                          lastUserMessage.includes("complete task") ||
+                          lastUserMessage.includes("mark as done") ||
+                          lastUserMessage.includes("mark as complete") ||
+                          lastUserMessage.includes("finish task") ||
+                          lastUserMessage.includes("done with") ||
+                          lastUserMessage.includes("completed") ||
+                          lastUserMessage.includes("कार्य जोड़") || // Hindi add
+                          lastUserMessage.includes("कार्य हटाएं") || // Hindi delete
+                          lastUserMessage.includes("कार्य पूरा") || // Hindi complete
+                          lastUserMessage.includes("టాస్క్ జోడించు") || // Telugu add
+                          lastUserMessage.includes("టాస్క్ తొలగించు") || // Telugu delete
+                          lastUserMessage.includes("పணி சேர்க்க") || // Tamil add
+                          lastUserMessage.includes("பணி நீக்க"); // Tamil delete
 
-    const systemPrompt = `You are FocusPlus AI, an explainable multilingual study assistant that can also manage tasks.
+    const systemPrompt = `You are FocusPlus AI, an explainable multilingual study assistant that can manage tasks.
 
-CRITICAL LANGUAGE INSTRUCTION: The user has selected "${languageName}" as their preferred language. You MUST respond ENTIRELY in ${languageName}. Do not mix languages. Every word of your response must be in ${languageName}.
+CRITICAL LANGUAGE INSTRUCTION: The user has selected "${languageName}" as their preferred language. You MUST respond ENTIRELY in ${languageName}. Do not mix languages.
 
 ${language === "hi" ? "आपको पूरी तरह से हिंदी में जवाब देना है।" : ""}
 ${language === "te" ? "మీరు పూర్తిగా తెలుగులో సమాధానం ఇవ్వాలి." : ""}
@@ -51,12 +63,15 @@ ${language === "ta" ? "நீங்கள் முழுமையாக தம�
 
 Your responsibilities:
 1. Provide clear, helpful answers ENTIRELY in ${languageName}
-2. Include your reasoning process wrapped in [THINKING]step1\nstep2[/THINKING] (reasoning steps should also be in ${languageName})
-3. Include key reasoning wrapped in [REASONING]your reasoning here[/REASONING] (also in ${languageName})
-4. If referencing sources, wrap in [SOURCES][{"file":"notes","chunk":"1","quote":"relevant text"}][/SOURCES]
-5. When the user asks to add/create tasks, use the add_tasks function to create them
+2. Include reasoning in [THINKING]...[/THINKING] and [REASONING]...[/REASONING] tags
+3. If referencing sources, wrap in [SOURCES][{"file":"notes","chunk":"1","quote":"text"}][/SOURCES]
+4. Use add_tasks to create new tasks
+5. Use delete_tasks to remove tasks (search by title keywords)
+6. Use complete_tasks to mark tasks as done (search by title keywords)
 
-Be concise, educational, and transparent about how you reached your conclusions. Remember: YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
+When deleting or completing tasks, extract the task title/keywords from the user's message to find matching tasks.
+
+Be concise and transparent. YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
 
     // Define tools for task management
     const tools = [
@@ -64,7 +79,7 @@ Be concise, educational, and transparent about how you reached your conclusions.
         type: "function",
         function: {
           name: "add_tasks",
-          description: "Add one or more tasks to the user's task list. Use this when the user asks to add, create, or schedule tasks.",
+          description: "Add one or more tasks to the user's task list.",
           parameters: {
             type: "object",
             properties: {
@@ -75,16 +90,52 @@ Be concise, educational, and transparent about how you reached your conclusions.
                   properties: {
                     title: { type: "string", description: "The task title" },
                     description: { type: "string", description: "Optional task description" },
-                    priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority" },
-                    subject: { type: "string", description: "Subject/category of the task" },
-                    due_date: { type: "string", description: "Due date in ISO format. Use today's date for immediate tasks." },
-                    estimated_minutes: { type: "number", description: "Estimated time in minutes" }
+                    priority: { type: "string", enum: ["low", "medium", "high"] },
+                    subject: { type: "string", description: "Subject/category" },
+                    due_date: { type: "string", description: "Due date in ISO format" },
+                    estimated_minutes: { type: "number" }
                   },
                   required: ["title"]
                 }
               }
             },
             required: ["tasks"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "delete_tasks",
+          description: "Delete tasks by searching for matching titles. Use when user wants to remove/delete tasks.",
+          parameters: {
+            type: "object",
+            properties: {
+              search_terms: {
+                type: "array",
+                items: { type: "string" },
+                description: "Keywords to search for in task titles to delete"
+              }
+            },
+            required: ["search_terms"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "complete_tasks",
+          description: "Mark tasks as completed by searching for matching titles. Use when user says they finished/completed/done with tasks.",
+          parameters: {
+            type: "object",
+            properties: {
+              search_terms: {
+                type: "array",
+                items: { type: "string" },
+                description: "Keywords to search for in task titles to mark complete"
+              }
+            },
+            required: ["search_terms"]
           }
         }
       }
@@ -114,10 +165,12 @@ Be concise, educational, and transparent about how you reached your conclusions.
     const choice = initialData.choices?.[0];
     
     // Check if AI wants to call a function
-    if (choice?.message?.tool_calls?.length > 0) {
+    if (choice?.message?.tool_calls?.length > 0 && userId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const toolCall = choice.message.tool_calls[0];
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       
-      if (toolCall.function.name === "add_tasks" && userId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      // Handle add_tasks
+      if (toolCall.function.name === "add_tasks") {
         console.log("AI wants to add tasks");
         
         try {
@@ -125,12 +178,8 @@ Be concise, educational, and transparent about how you reached your conclusions.
           const tasksToAdd = args.tasks || [];
           console.log("Tasks to add:", JSON.stringify(tasksToAdd));
           
-          // Create Supabase client
-          const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-          
-          // Insert tasks
           const today = new Date().toISOString();
-          const insertedTasks = [];
+          const insertedTasks: Array<{ title: string }> = [];
           
           for (const task of tasksToAdd) {
             const { data, error } = await supabase
@@ -156,39 +205,150 @@ Be concise, educational, and transparent about how you reached your conclusions.
             }
           }
           
-          // Generate confirmation response
           const taskConfirmation = insertedTasks.map(t => t.title).join(", ");
           const confirmationMessages: Record<string, string> = {
-            en: `I've added ${insertedTasks.length} task(s) to your list: ${taskConfirmation}. You can see them in Today's Agenda on your Dashboard and in the Planner calendar.`,
-            hi: `मैंने आपकी सूची में ${insertedTasks.length} कार्य जोड़ दिए हैं: ${taskConfirmation}। आप उन्हें अपने डैशबोर्ड पर आज के एजेंडा में और प्लानर कैलेंडर में देख सकते हैं।`,
-            te: `నేను మీ జాబితాకు ${insertedTasks.length} పని(లు) జోడించాను: ${taskConfirmation}. మీరు వాటిని మీ డాష్‌బోర్డ్‌లో నేటి ఎజెండాలో మరియు ప్లానర్ క్యాలెండర్‌లో చూడవచ్చు.`,
-            ta: `உங்கள் பட்டியலில் ${insertedTasks.length} பணி(களை) சேர்த்துள்ளேன்: ${taskConfirmation}. நீங்கள் அவற்றை உங்கள் டாஷ்போர்டில் இன்றைய நிகழ்ச்சி நிரலிலும் திட்டமிடல் காலண்டரிலும் காணலாம்.`
+            en: `I've added ${insertedTasks.length} task(s): ${taskConfirmation}. Check Today's Agenda or the Planner.`,
+            hi: `मैंने ${insertedTasks.length} कार्य जोड़े: ${taskConfirmation}। डैशबोर्ड या प्लानर देखें।`,
+            te: `${insertedTasks.length} పనులు జోడించాను: ${taskConfirmation}. డాష్‌బోర్డ్ లేదా ప్లానర్ చూడండి.`,
+            ta: `${insertedTasks.length} பணிகளை சேர்த்தேன்: ${taskConfirmation}. டாஷ்போர்ட் அல்லது திட்டமிடல் பார்க்கவும்.`
           };
           
-          const confirmationMessage = confirmationMessages[language as string] || confirmationMessages.en;
-          
-          // Return as SSE stream format for consistency
-          const responseContent = `[TASKS_ADDED]${JSON.stringify(insertedTasks)}[/TASKS_ADDED]\n\n${confirmationMessage}`;
-          
-          // Create a stream response
-          const encoder = new TextEncoder();
-          const stream = new ReadableStream({
-            start(controller) {
-              const data = JSON.stringify({
-                choices: [{ delta: { content: responseContent } }]
-              });
-              controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-              controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
-              controller.close();
-            }
-          });
-          
-          return new Response(stream, { 
-            headers: { ...corsHeaders, "Content-Type": "text/event-stream" } 
-          });
-          
+          return createStreamResponse(
+            `[TASKS_ADDED]${JSON.stringify(insertedTasks)}[/TASKS_ADDED]\n\n${confirmationMessages[language as string] || confirmationMessages.en}`,
+            corsHeaders
+          );
         } catch (parseError) {
-          console.error("Error processing tool call:", parseError);
+          console.error("Error processing add_tasks:", parseError);
+        }
+      }
+      
+      // Handle delete_tasks
+      if (toolCall.function.name === "delete_tasks") {
+        console.log("AI wants to delete tasks");
+        
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          const searchTerms = args.search_terms || [];
+          console.log("Search terms for deletion:", searchTerms);
+          
+          const deletedTasks: Array<{ title: string }> = [];
+          
+          for (const term of searchTerms) {
+            // Find tasks matching the search term
+            const { data: matchingTasks, error: findError } = await supabase
+              .from("tasks")
+              .select("id, title")
+              .eq("user_id", userId)
+              .ilike("title", `%${term}%`);
+            
+            if (findError) {
+              console.error("Error finding tasks:", findError);
+              continue;
+            }
+            
+            if (matchingTasks && matchingTasks.length > 0) {
+              for (const task of matchingTasks) {
+                const { error: deleteError } = await supabase
+                  .from("tasks")
+                  .delete()
+                  .eq("id", task.id);
+                
+                if (!deleteError) {
+                  deletedTasks.push(task);
+                  console.log("Deleted task:", task.title);
+                }
+              }
+            }
+          }
+          
+          const confirmationMessages: Record<string, string> = {
+            en: deletedTasks.length > 0 
+              ? `I've deleted ${deletedTasks.length} task(s): ${deletedTasks.map(t => t.title).join(", ")}.`
+              : `I couldn't find any tasks matching your request.`,
+            hi: deletedTasks.length > 0
+              ? `मैंने ${deletedTasks.length} कार्य हटाए: ${deletedTasks.map(t => t.title).join(", ")}।`
+              : `मुझे आपके अनुरोध से मेल खाने वाला कोई कार्य नहीं मिला।`,
+            te: deletedTasks.length > 0
+              ? `${deletedTasks.length} పనులు తొలగించాను: ${deletedTasks.map(t => t.title).join(", ")}.`
+              : `మీ అభ్యర్థనకు సరిపోలే పనులు కనుగొనలేకపోయాను.`,
+            ta: deletedTasks.length > 0
+              ? `${deletedTasks.length} பணிகளை நீக்கினேன்: ${deletedTasks.map(t => t.title).join(", ")}.`
+              : `உங்கள் கோரிக்கைக்கு பொருந்தும் பணிகளை கண்டுபிடிக்க முடியவில்லை.`
+          };
+          
+          return createStreamResponse(
+            `[TASKS_DELETED]${JSON.stringify(deletedTasks)}[/TASKS_DELETED]\n\n${confirmationMessages[language as string] || confirmationMessages.en}`,
+            corsHeaders
+          );
+        } catch (parseError) {
+          console.error("Error processing delete_tasks:", parseError);
+        }
+      }
+      
+      // Handle complete_tasks
+      if (toolCall.function.name === "complete_tasks") {
+        console.log("AI wants to complete tasks");
+        
+        try {
+          const args = JSON.parse(toolCall.function.arguments);
+          const searchTerms = args.search_terms || [];
+          console.log("Search terms for completion:", searchTerms);
+          
+          const completedTasks: Array<{ title: string }> = [];
+          
+          for (const term of searchTerms) {
+            // Find pending tasks matching the search term
+            const { data: matchingTasks, error: findError } = await supabase
+              .from("tasks")
+              .select("id, title")
+              .eq("user_id", userId)
+              .eq("status", "pending")
+              .ilike("title", `%${term}%`);
+            
+            if (findError) {
+              console.error("Error finding tasks:", findError);
+              continue;
+            }
+            
+            if (matchingTasks && matchingTasks.length > 0) {
+              for (const task of matchingTasks) {
+                const { error: updateError } = await supabase
+                  .from("tasks")
+                  .update({ 
+                    status: "completed",
+                    completed_at: new Date().toISOString()
+                  })
+                  .eq("id", task.id);
+                
+                if (!updateError) {
+                  completedTasks.push(task);
+                  console.log("Completed task:", task.title);
+                }
+              }
+            }
+          }
+          
+          const confirmationMessages: Record<string, string> = {
+            en: completedTasks.length > 0
+              ? `Great job! I've marked ${completedTasks.length} task(s) as complete: ${completedTasks.map(t => t.title).join(", ")}.`
+              : `I couldn't find any pending tasks matching your request.`,
+            hi: completedTasks.length > 0
+              ? `बहुत बढ़िया! मैंने ${completedTasks.length} कार्य पूरे किए: ${completedTasks.map(t => t.title).join(", ")}।`
+              : `मुझे आपके अनुरोध से मेल खाने वाला कोई लंबित कार्य नहीं मिला।`,
+            te: completedTasks.length > 0
+              ? `అద్భుతం! ${completedTasks.length} పనులు పూర్తి చేశాను: ${completedTasks.map(t => t.title).join(", ")}.`
+              : `మీ అభ్యర్థనకు సరిపోలే పెండింగ్ పనులు కనుగొనలేకపోయాను.`,
+            ta: completedTasks.length > 0
+              ? `அருமை! ${completedTasks.length} பணிகளை முடித்தேன்: ${completedTasks.map(t => t.title).join(", ")}.`
+              : `உங்கள் கோரிக்கைக்கு பொருந்தும் நிலுவையில் உள்ள பணிகளை கண்டுபிடிக்க முடியவில்லை.`
+          };
+          
+          return createStreamResponse(
+            `[TASKS_COMPLETED]${JSON.stringify(completedTasks)}[/TASKS_COMPLETED]\n\n${confirmationMessages[language as string] || confirmationMessages.en}`,
+            corsHeaders
+          );
+        } catch (parseError) {
+          console.error("Error processing complete_tasks:", parseError);
         }
       }
     }
@@ -215,3 +375,16 @@ Be concise, educational, and transparent about how you reached your conclusions.
     return new Response(JSON.stringify({ error: errorMessage }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
+
+function createStreamResponse(content: string, corsHeaders: Record<string, string>) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    start(controller) {
+      const data = JSON.stringify({ choices: [{ delta: { content } }] });
+      controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+      controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+      controller.close();
+    }
+  });
+  return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+}
