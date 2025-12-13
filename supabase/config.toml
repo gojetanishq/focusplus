@@ -8,3 +8,9 @@ verify_jwt = false
 
 [functions.task-difficulty]
 verify_jwt = false
+
+[functions.revision-plan]
+verify_jwt = false
+
+[functions.timetable-replan]
+verify_jwt = false
