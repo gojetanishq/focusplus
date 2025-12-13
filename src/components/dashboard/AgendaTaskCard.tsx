@@ -18,6 +18,12 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
+interface AccuracyBreakdown {
+  reasoning_quality: number;
+  source_reliability: number;
+  alignment_score: number;
+}
+
 interface DifficultyAnalysis {
   difficulty_score: number;
   difficulty_label: string;
@@ -25,6 +31,7 @@ interface DifficultyAnalysis {
   reasoning_signals: string[];
   sources: Array<{ title: string; description: string; type: string; url?: string }>;
   confidence: number;
+  accuracy_breakdown?: AccuracyBreakdown;
   estimated_time_minutes: number;
 }
 
@@ -319,15 +326,44 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                   </div>
                 )}
 
-                {/* Confidence & Time with Circular Progress */}
-                <div className="flex items-center justify-between pt-2 border-t border-border/50">
-                  <div className="flex items-center gap-3">
-                    <CircularProgress value={analysis.confidence} size={48} strokeWidth={4} />
-                    <span className="text-sm text-muted-foreground">{t("difficulty.confidence")}</span>
+                {/* Accuracy with Circular Progress and Breakdown */}
+                <div className="pt-2 border-t border-border/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CircularProgress value={analysis.confidence} size={56} strokeWidth={5} />
+                      <div>
+                        <span className="text-sm font-medium">{t("difficulty.confidence")}</span>
+                        {analysis.accuracy_breakdown && (
+                          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="w-20">Reasoning:</span>
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[80px]">
+                                <div className="h-full bg-primary" style={{ width: `${analysis.accuracy_breakdown.reasoning_quality}%` }} />
+                              </div>
+                              <span className="w-8 text-right">{analysis.accuracy_breakdown.reasoning_quality}%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-20">Sources:</span>
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[80px]">
+                                <div className="h-full bg-success" style={{ width: `${analysis.accuracy_breakdown.source_reliability}%` }} />
+                              </div>
+                              <span className="w-8 text-right">{analysis.accuracy_breakdown.source_reliability}%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="w-20">Alignment:</span>
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[80px]">
+                                <div className="h-full bg-warning" style={{ width: `${analysis.accuracy_breakdown.alignment_score}%` }} />
+                              </div>
+                              <span className="w-8 text-right">{analysis.accuracy_breakdown.alignment_score}%</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {t("difficulty.estTime")}: {analysis.estimated_time_minutes}m
+                    </span>
                   </div>
-                  <span className="text-sm text-muted-foreground">
-                    {t("difficulty.estTime")}: {analysis.estimated_time_minutes}m
-                  </span>
                 </div>
               </div>
             )}

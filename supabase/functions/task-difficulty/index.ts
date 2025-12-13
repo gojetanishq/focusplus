@@ -27,31 +27,52 @@ serve(async (req) => {
 
     const langName = languageNames[language] || "English";
 
-    const systemPrompt = `You are an educational difficulty analyzer. Given a task or topic, analyze its difficulty level for students.
+    const systemPrompt = `You are an educational difficulty analyzer with access to real educational resources. Given a task or topic, analyze its difficulty level for students.
 
 CRITICAL: You MUST respond ENTIRELY in ${langName} language. All text including reasoning_summary, reasoning_signals, source titles, and source descriptions MUST be in ${langName}. Do NOT mix languages.
     
 You MUST respond using the suggest_difficulty function with the exact schema provided.
 
-Consider:
+Consider these factors for difficulty assessment:
 - Cognitive complexity required
 - Prerequisite knowledge needed
 - Abstract vs concrete concepts
 - Time typically needed to master
 - Common student struggles with this topic
 
-IMPORTANT: Always include 2-3 educational resources/sources that support your analysis. These can be:
-- Standard textbooks for this subject
-- University course materials
-- Educational research findings
-- Common curriculum standards`;
+CRITICAL - SOURCES REQUIREMENT:
+You MUST provide 2-3 REAL educational resources with WORKING URLs. Use these trusted sources:
+- Khan Academy: https://www.khanacademy.org/... (for various subjects)
+- MIT OpenCourseWare: https://ocw.mit.edu/... (for university-level content)
+- Coursera: https://www.coursera.org/... (for online courses)
+- edX: https://www.edx.org/... (for online courses)
+- Wikipedia: https://en.wikipedia.org/... (for general knowledge)
+- BBC Bitesize: https://www.bbc.co.uk/bitesize/... (for school subjects)
+- CK-12: https://www.ck12.org/... (for K-12 subjects)
+- Paul's Online Math Notes: https://tutorial.math.lamar.edu/... (for math)
+- Physics Classroom: https://www.physicsclassroom.com/... (for physics)
+
+ACCURACY CALCULATION:
+The accuracy/confidence score MUST be calculated based on:
+1. Quality and specificity of reasoning (30% weight) - How detailed and accurate are the reasons?
+2. Number and reliability of sources (40% weight) - Are sources from reputable educational platforms?
+3. Alignment between difficulty score and reasoning (30% weight) - Does the reasoning support the difficulty level?
+
+High accuracy (85-100%): Strong reasoning with 3 reliable sources from major educational platforms
+Medium accuracy (60-84%): Good reasoning with 2 sources from known platforms
+Low accuracy (below 60%): Limited reasoning or sources from less authoritative sources`;
 
     const userPrompt = `Analyze the difficulty of this study task:
 Title: ${taskTitle}
 ${taskDescription ? `Description: ${taskDescription}` : ""}
 ${taskSubject ? `Subject: ${taskSubject}` : ""}
 
-Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${langName} language and include educational resources.`;
+Provide a comprehensive difficulty analysis with:
+1. Detailed reasoning explaining the difficulty level
+2. 2-3 REAL educational resources with WORKING URLs (from Khan Academy, MIT OCW, Coursera, Wikipedia, etc.)
+3. Calculate accuracy based on the quality of your reasoning and the reliability of sources
+
+Remember to respond ENTIRELY in ${langName} language.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -70,13 +91,13 @@ Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${l
             type: "function",
             function: {
               name: "suggest_difficulty",
-              description: "Return a comprehensive difficulty analysis for the task",
+              description: "Return a comprehensive difficulty analysis for the task with real educational resources",
               parameters: {
                 type: "object",
                 properties: {
                   difficulty_score: {
                     type: "number",
-                    description: "Difficulty score from 0-100",
+                    description: "Difficulty score from 0-100 based on cognitive complexity, prerequisites, and typical student performance",
                   },
                   difficulty_label: {
                     type: "string",
@@ -86,34 +107,44 @@ Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${l
                   reasoning_summary: {
                     type: "array",
                     items: { type: "string" },
-                    description: `List of 4-6 reasons explaining why this topic has this difficulty level. MUST be in ${langName}.`,
+                    description: `List of 4-6 detailed reasons explaining why this topic has this difficulty level. Each reason should be specific and evidence-based. MUST be in ${langName}.`,
                   },
                   reasoning_signals: {
                     type: "array",
                     items: { type: "string" },
-                    description: `Short 2-3 word tags describing reasoning aspects. MUST be in ${langName}.`,
+                    description: `4-5 short 2-3 word tags describing key difficulty factors. MUST be in ${langName}.`,
                   },
                   sources: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        title: { type: "string", description: `Resource title in ${langName}` },
-                        description: { type: "string", description: `Brief description in ${langName}` },
-                        type: { type: "string", description: `Type of resource in ${langName} (e.g., Textbook, Course, Research)` },
-                        url: { type: "string", description: "URL link to the resource (use real URLs like Amazon book links, MIT OCW, Khan Academy, etc.)" },
+                        title: { type: "string", description: `Full resource title in ${langName}` },
+                        description: { type: "string", description: `Brief description explaining how this resource relates to the topic. In ${langName}.` },
+                        type: { type: "string", description: `Type: Online Course, Textbook, Tutorial, Encyclopedia, Video Series. In ${langName}.` },
+                        url: { type: "string", description: "REAL working URL from trusted educational platforms (Khan Academy, MIT OCW, Coursera, Wikipedia, etc.)" },
                       },
                       required: ["title", "description", "type", "url"],
                     },
-                    description: `2-3 educational resources with real URLs that support this analysis. All text MUST be in ${langName}.`,
+                    description: `2-3 educational resources with REAL URLs from trusted platforms. URLs must be valid and accessible.`,
                   },
                   confidence: {
                     type: "number",
-                    description: "Confidence level of the analysis from 0-100, based on how well the reasoning and sources support the difficulty assessment",
+                    description: "Accuracy score (0-100) calculated as: 30% reasoning quality + 40% source reliability + 30% alignment between score and reasoning. High accuracy = detailed reasoning with reliable sources.",
+                  },
+                  accuracy_breakdown: {
+                    type: "object",
+                    properties: {
+                      reasoning_quality: { type: "number", description: "Score 0-100 for reasoning specificity and detail" },
+                      source_reliability: { type: "number", description: "Score 0-100 for source trustworthiness (major platforms = high)" },
+                      alignment_score: { type: "number", description: "Score 0-100 for how well reasoning supports the difficulty level" },
+                    },
+                    required: ["reasoning_quality", "source_reliability", "alignment_score"],
+                    description: "Breakdown of how accuracy was calculated",
                   },
                   estimated_time_minutes: {
                     type: "number",
-                    description: "Estimated time in minutes to complete this task",
+                    description: "Estimated time in minutes to complete this task based on difficulty and typical student pace",
                   },
                 },
                 required: [
@@ -123,6 +154,7 @@ Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${l
                   "reasoning_signals",
                   "sources",
                   "confidence",
+                  "accuracy_breakdown",
                   "estimated_time_minutes",
                 ],
                 additionalProperties: false,
@@ -161,10 +193,37 @@ Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${l
 
     const analysis = JSON.parse(toolCall.function.arguments);
 
-    // Ensure sources array exists
+    // Ensure sources array exists with valid URLs
     if (!analysis.sources || !Array.isArray(analysis.sources)) {
       analysis.sources = [];
     }
+
+    // Validate and filter sources to ensure they have URLs
+    analysis.sources = analysis.sources.filter((source: any) => 
+      source && source.url && typeof source.url === 'string' && source.url.startsWith('http')
+    );
+
+    // Ensure accuracy breakdown exists
+    if (!analysis.accuracy_breakdown) {
+      analysis.accuracy_breakdown = {
+        reasoning_quality: 70,
+        source_reliability: analysis.sources.length >= 2 ? 80 : 50,
+        alignment_score: 75,
+      };
+      // Recalculate confidence if needed
+      analysis.confidence = Math.round(
+        analysis.accuracy_breakdown.reasoning_quality * 0.3 +
+        analysis.accuracy_breakdown.source_reliability * 0.4 +
+        analysis.accuracy_breakdown.alignment_score * 0.3
+      );
+    }
+
+    console.log("Task difficulty analysis completed:", {
+      title: taskTitle,
+      difficulty: analysis.difficulty_label,
+      confidence: analysis.confidence,
+      sourcesCount: analysis.sources.length,
+    });
 
     return new Response(JSON.stringify(analysis), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
