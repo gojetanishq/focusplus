@@ -15,8 +15,11 @@ const ZOOM_STEP = 0.1;
 
 export function ZoomProvider({ children }: { children: ReactNode }) {
   const [zoomLevel, setZoomLevel] = useState(() => {
-    const saved = localStorage.getItem("focusplus-zoom");
-    return saved ? parseFloat(saved) : 1;
+    if (typeof window === "undefined") return 1;
+    const saved = window.localStorage.getItem("focusplus-zoom");
+    const raw = saved ? parseFloat(saved) : 1;
+    if (Number.isNaN(raw) || raw <= 0) return 1;
+    return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, raw));
   });
 
   useEffect(() => {
