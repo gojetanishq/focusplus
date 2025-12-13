@@ -6,17 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface TopicWeakness {
-  topic: string;
-  weakness_score: number;
-  missed_sessions: number;
-  low_confidence_count: number;
-  low_xp_tasks: number;
-  difficulty_reviews: number;
-  recommended_sessions: number;
-  sources: { file: string; quote: string }[];
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,184 +19,278 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    // Fetch user's tasks grouped by subject
-    const { data: tasks, error: tasksError } = await supabase
-      .from("tasks")
-      .select("*")
-      .eq("user_id", userId);
-
-    if (tasksError) {
-      console.error("Error fetching tasks:", tasksError);
-      throw tasksError;
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Fetch study sessions
-    const { data: sessions, error: sessionsError } = await supabase
-      .from("study_sessions")
-      .select("*")
-      .eq("user_id", userId);
+    // Fetch all user data
+    const [tasksResult, sessionsResult, reviewsResult] = await Promise.all([
+      supabase.from("tasks").select("*").eq("user_id", userId),
+      supabase.from("study_sessions").select("*").eq("user_id", userId),
+      supabase.from("task_reviews").select("*, tasks!inner(subject, user_id, title)").eq("tasks.user_id", userId),
+    ]);
 
-    if (sessionsError) {
-      console.error("Error fetching sessions:", sessionsError);
-    }
-
-    // Fetch task reviews for difficulty ratings
-    const { data: reviews, error: reviewsError } = await supabase
-      .from("task_reviews")
-      .select("*, tasks!inner(subject, user_id)")
-      .eq("tasks.user_id", userId);
-
-    if (reviewsError) {
-      console.error("Error fetching reviews:", reviewsError);
-    }
+    const tasks = tasksResult.data || [];
+    const sessions = sessionsResult.data || [];
+    const reviews = reviewsResult.data || [];
 
     // Group data by subject/topic
     const topicData: Map<string, {
       totalTasks: number;
       completedTasks: number;
+      pendingTasks: string[];
       totalSessions: number;
       missedSessions: number;
+      totalStudyMinutes: number;
       avgDifficultyRating: number;
       difficultyCount: number;
-      totalEstimatedMinutes: number;
+      highDifficultyTasks: string[];
     }> = new Map();
 
     // Process tasks
-    (tasks || []).forEach((task: any) => {
+    tasks.forEach((task: any) => {
       const topic = task.subject || "General";
       if (!topicData.has(topic)) {
         topicData.set(topic, {
           totalTasks: 0,
           completedTasks: 0,
+          pendingTasks: [],
           totalSessions: 0,
           missedSessions: 0,
+          totalStudyMinutes: 0,
           avgDifficultyRating: 0,
           difficultyCount: 0,
-          totalEstimatedMinutes: 0,
+          highDifficultyTasks: [],
         });
       }
       const data = topicData.get(topic)!;
       data.totalTasks++;
-      if (task.status === "completed") data.completedTasks++;
-      data.totalEstimatedMinutes += task.estimated_minutes || 30;
+      if (task.status === "completed") {
+        data.completedTasks++;
+      } else {
+        data.pendingTasks.push(task.title);
+      }
     });
 
-    // Process sessions - count "missed" as those not completed within expected time
-    (sessions || []).forEach((session: any) => {
+    // Process sessions
+    sessions.forEach((session: any) => {
       const topic = session.subject || "General";
       if (!topicData.has(topic)) {
         topicData.set(topic, {
           totalTasks: 0,
           completedTasks: 0,
+          pendingTasks: [],
           totalSessions: 0,
           missedSessions: 0,
+          totalStudyMinutes: 0,
           avgDifficultyRating: 0,
           difficultyCount: 0,
-          totalEstimatedMinutes: 0,
+          highDifficultyTasks: [],
         });
       }
       const data = topicData.get(topic)!;
       data.totalSessions++;
-      // Consider a session "missed" if it has no ended_at or very short duration
+      data.totalStudyMinutes += session.duration_minutes || 0;
       if (!session.ended_at || session.duration_minutes < 10) {
         data.missedSessions++;
       }
     });
 
     // Process reviews
-    (reviews || []).forEach((review: any) => {
+    reviews.forEach((review: any) => {
       const topic = review.tasks?.subject || "General";
       if (topicData.has(topic)) {
         const data = topicData.get(topic)!;
-        data.avgDifficultyRating = 
-          (data.avgDifficultyRating * data.difficultyCount + review.difficulty_rating) / 
+        data.avgDifficultyRating =
+          (data.avgDifficultyRating * data.difficultyCount + review.difficulty_rating) /
           (data.difficultyCount + 1);
         data.difficultyCount++;
+        if (review.difficulty_rating >= 7) {
+          data.highDifficultyTasks.push(review.tasks?.title || "Unknown task");
+        }
       }
     });
 
-    // Calculate weakness scores
-    const topics: TopicWeakness[] = [];
-
+    // Build topic summaries for AI
+    const topicSummaries: any[] = [];
     topicData.forEach((data, topic) => {
-      // Weight calculations:
-      // Missed sessions (0.4): ratio of missed to total
-      const missedRatio = data.totalSessions > 0 
-        ? (data.missedSessions / data.totalSessions) * 0.4 
-        : 0.2; // Default if no sessions
-
-      // Low confidence/AI difficulty (0.3): based on avg difficulty rating (higher = harder)
-      const difficultyScore = data.difficultyCount > 0 
-        ? (data.avgDifficultyRating / 10) * 0.3 
-        : 0.15;
-
-      // Low XP from tasks (0.2): based on completion rate (inverse)
-      const completionRate = data.totalTasks > 0 
-        ? (1 - data.completedTasks / data.totalTasks) * 0.2 
-        : 0.1;
-
-      // Student difficulty reviews (0.1)
-      const reviewScore = data.difficultyCount > 0 
-        ? Math.min(data.avgDifficultyRating / 10, 1) * 0.1 
-        : 0.05;
+      const missedRatio = data.totalSessions > 0 ? data.missedSessions / data.totalSessions : 0;
+      const completionRate = data.totalTasks > 0 ? data.completedTasks / data.totalTasks : 1;
+      const difficultyScore = data.difficultyCount > 0 ? data.avgDifficultyRating / 10 : 0;
 
       const weakness_score = Math.round(
-        (missedRatio + difficultyScore + completionRate + reviewScore) * 100
+        (missedRatio * 0.4 + difficultyScore * 0.3 + (1 - completionRate) * 0.2 + difficultyScore * 0.1) * 100
       ) / 100;
 
-      // Recommend sessions based on weakness score
-      const recommended_sessions = Math.max(1, Math.ceil(weakness_score * 5));
-
-      topics.push({
+      topicSummaries.push({
         topic,
         weakness_score,
+        total_tasks: data.totalTasks,
+        completed_tasks: data.completedTasks,
+        pending_tasks: data.pendingTasks.slice(0, 3),
+        total_sessions: data.totalSessions,
         missed_sessions: data.missedSessions,
-        low_confidence_count: data.difficultyCount,
-        low_xp_tasks: data.totalTasks - data.completedTasks,
-        difficulty_reviews: data.difficultyCount,
-        recommended_sessions,
-        sources: [
-          { file: "study_patterns.pdf", quote: `Topic requires ${recommended_sessions} revision sessions based on your learning curve.` },
-        ],
+        total_study_minutes: data.totalStudyMinutes,
+        avg_difficulty: Math.round(data.avgDifficultyRating * 10) / 10,
+        high_difficulty_tasks: data.highDifficultyTasks.slice(0, 2),
       });
     });
 
-    // Sort by weakness score (highest first)
-    topics.sort((a, b) => b.weakness_score - a.weakness_score);
+    // Sort by weakness score
+    topicSummaries.sort((a, b) => b.weakness_score - a.weakness_score);
+    const weakTopics = topicSummaries.slice(0, 5);
 
-    // Take top 5 weak topics
-    const weakTopics = topics.slice(0, 5);
+    if (weakTopics.length === 0) {
+      return new Response(
+        JSON.stringify({
+          topics: [],
+          reasoning_summary: ["No study data found. Start adding tasks and study sessions to get personalized revision recommendations."],
+          ai_analysis: null,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Generate reasoning summary
-    const reasoning_summary = weakTopics.map((t) => 
-      `${t.topic}: ${Math.round(t.weakness_score * 100)}% weakness due to ${t.missed_sessions} missed sessions and ${t.low_xp_tasks} incomplete tasks.`
+    // Call AI for dynamic analysis
+    console.log("Calling Lovable AI for revision analysis...");
+
+    const systemPrompt = `You are a study coach AI. Analyze weak topics and provide personalized revision recommendations. Be specific and actionable.`;
+
+    const userPrompt = `Analyze these weak study topics and provide revision recommendations:
+
+WEAK TOPICS DATA:
+${JSON.stringify(weakTopics, null, 2)}
+
+For each topic, provide:
+1. A specific reason why it needs revision (based on the actual data)
+2. A personalized recommendation
+3. The recommended number of revision sessions (1-5)
+
+Be specific - reference actual numbers from the data like missed sessions, incomplete tasks, difficulty ratings.`;
+
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "analyze_weak_topics",
+              description: "Provide revision analysis for weak topics",
+              parameters: {
+                type: "object",
+                properties: {
+                  topic_analyses: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        topic: { type: "string" },
+                        weakness_reason: { type: "string", description: "Specific reason based on data why this topic is weak" },
+                        recommendation: { type: "string", description: "Personalized study recommendation" },
+                        recommended_sessions: { type: "number", description: "Number of revision sessions needed (1-5)" },
+                        priority: { type: "string", enum: ["high", "medium", "low"] },
+                      },
+                      required: ["topic", "weakness_reason", "recommendation", "recommended_sessions", "priority"],
+                    },
+                  },
+                  overall_advice: { type: "string", description: "General revision strategy advice" },
+                },
+                required: ["topic_analyses", "overall_advice"],
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "analyze_weak_topics" } },
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      console.error("AI API error:", aiResponse.status);
+      // Fallback to basic analysis
+      return new Response(
+        JSON.stringify({
+          topics: weakTopics.map((t) => ({
+            topic: t.topic,
+            weakness_score: t.weakness_score,
+            missed_sessions: t.missed_sessions,
+            low_xp_tasks: t.total_tasks - t.completed_tasks,
+            recommended_sessions: Math.max(1, Math.ceil(t.weakness_score * 5)),
+            weakness_reason: `${t.missed_sessions} missed sessions and ${t.total_tasks - t.completed_tasks} incomplete tasks.`,
+            recommendation: `Focus on completing pending tasks and scheduling regular study sessions.`,
+            priority: t.weakness_score >= 0.7 ? "high" : t.weakness_score >= 0.4 ? "medium" : "low",
+          })),
+          reasoning_summary: weakTopics.map((t) =>
+            `${t.topic}: ${Math.round(t.weakness_score * 100)}% weakness`
+          ),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const aiData = await aiResponse.json();
+    console.log("AI response received");
+
+    let aiAnalysis: { topic_analyses?: any[]; overall_advice?: string } | null = null;
+    try {
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        aiAnalysis = JSON.parse(toolCall.function.arguments);
+      }
+    } catch (parseError) {
+      console.error("Error parsing AI response:", parseError);
+    }
+
+    // Merge AI analysis with topic data
+    const enrichedTopics = weakTopics.map((t) => {
+      const aiTopic = aiAnalysis?.topic_analyses?.find(
+        (a: any) => a.topic.toLowerCase() === t.topic.toLowerCase()
+      );
+
+      return {
+        topic: t.topic,
+        weakness_score: t.weakness_score,
+        missed_sessions: t.missed_sessions,
+        low_xp_tasks: t.total_tasks - t.completed_tasks,
+        total_study_minutes: t.total_study_minutes,
+        avg_difficulty: t.avg_difficulty,
+        recommended_sessions: aiTopic?.recommended_sessions || Math.max(1, Math.ceil(t.weakness_score * 5)),
+        weakness_reason: aiTopic?.weakness_reason || `${t.missed_sessions} missed sessions and ${t.total_tasks - t.completed_tasks} incomplete tasks need attention.`,
+        recommendation: aiTopic?.recommendation || "Schedule regular revision sessions to improve mastery.",
+        priority: aiTopic?.priority || (t.weakness_score >= 0.7 ? "high" : t.weakness_score >= 0.4 ? "medium" : "low"),
+      };
+    });
+
+    const reasoning_summary = enrichedTopics.map((t) =>
+      `${t.topic}: ${t.weakness_reason}`
     );
 
-    // Generate recommended schedule
-    const recommended_schedule = weakTopics.map((t, idx) => ({
-      day: idx + 1,
-      topic: t.topic,
-      sessions: t.recommended_sessions,
-      duration_minutes: 45,
-    }));
-
-    console.log("Revision plan generated successfully");
+    console.log("Revision plan generated successfully with AI analysis");
 
     return new Response(
       JSON.stringify({
-        topics: weakTopics,
-        weakness_scores: weakTopics.map((t) => t.weakness_score),
-        recommended_schedule,
+        topics: enrichedTopics,
         reasoning_summary,
+        overall_advice: aiAnalysis?.overall_advice || "Focus on your weakest topics first and maintain consistent study sessions.",
+        generated_at: new Date().toISOString(),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("revision-plan error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

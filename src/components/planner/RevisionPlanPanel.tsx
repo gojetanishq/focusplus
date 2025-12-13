@@ -4,15 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { Brain, Loader2, Plus, AlertTriangle, BookOpen } from "lucide-react";
+import { Brain, Loader2, Plus, AlertTriangle, Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface TopicWeakness {
   topic: string;
   weakness_score: number;
   missed_sessions: number;
   low_xp_tasks: number;
+  total_study_minutes?: number;
+  avg_difficulty?: number;
   recommended_sessions: number;
-  sources: { file: string; quote: string }[];
+  weakness_reason: string;
+  recommendation: string;
+  priority: "high" | "medium" | "low";
 }
 
 interface RevisionPlanPanelProps {
@@ -26,11 +31,13 @@ export function RevisionPlanPanel({ onAddToTimetable }: RevisionPlanPanelProps) 
   const [plan, setPlan] = useState<{
     topics: TopicWeakness[];
     reasoning_summary: string[];
+    overall_advice?: string;
   } | null>(null);
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
 
   const generatePlan = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const response = await fetch(
@@ -51,7 +58,9 @@ export function RevisionPlanPanel({ onAddToTimetable }: RevisionPlanPanelProps) 
       setPlan(data);
       toast({
         title: "Revision Plan Generated",
-        description: `Found ${data.topics.length} topics needing revision.`,
+        description: data.topics.length > 0 
+          ? `Found ${data.topics.length} topics needing revision.`
+          : "No weak topics found - great work!",
       });
     } catch (error) {
       console.error("Error generating revision plan:", error);
@@ -65,23 +74,40 @@ export function RevisionPlanPanel({ onAddToTimetable }: RevisionPlanPanelProps) 
     }
   };
 
+  const toggleExpanded = (topic: string) => {
+    setExpandedTopics((prev) => {
+      const next = new Set(prev);
+      if (next.has(topic)) {
+        next.delete(topic);
+      } else {
+        next.add(topic);
+      }
+      return next;
+    });
+  };
+
+  const getPriorityBadge = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return { label: "HIGH", className: "bg-destructive/20 text-destructive border-destructive/30" };
+      case "medium":
+        return { label: "MEDIUM", className: "bg-primary/20 text-primary border-primary/30" };
+      default:
+        return { label: "LOW", className: "bg-muted text-muted-foreground" };
+    }
+  };
+
   const getWeaknessColor = (score: number) => {
     if (score >= 0.7) return "text-destructive";
-    if (score >= 0.4) return "text-warning";
+    if (score >= 0.4) return "text-primary";
     return "text-muted-foreground";
   };
 
-  const getWeaknessBadge = (score: number) => {
-    if (score >= 0.7) return { label: "HIGH", variant: "destructive" as const };
-    if (score >= 0.4) return { label: "MEDIUM", variant: "secondary" as const };
-    return { label: "LOW", variant: "outline" as const };
-  };
-
   return (
-    <Card className="border-warning/20">
+    <Card className="border-primary/20">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Brain className="h-5 w-5 text-warning" />
+          <Brain className="h-5 w-5 text-primary" />
           Smart Revision
         </CardTitle>
       </CardHeader>
@@ -89,7 +115,7 @@ export function RevisionPlanPanel({ onAddToTimetable }: RevisionPlanPanelProps) 
         {!plan ? (
           <div className="text-center py-4">
             <p className="text-sm text-muted-foreground mb-4">
-              Analyze your study patterns to find weak topics that need revision.
+              AI analyzes your study patterns to find topics that need revision.
             </p>
             <Button
               onClick={generatePlan}
@@ -102,71 +128,115 @@ export function RevisionPlanPanel({ onAddToTimetable }: RevisionPlanPanelProps) 
               ) : (
                 <Brain className="h-4 w-4" />
               )}
-              Generate Revision Plan
+              {loading ? "Analyzing..." : "Generate Revision Plan"}
             </Button>
           </div>
         ) : (
           <div className="space-y-3">
+            {plan.overall_advice && (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
+                <Lightbulb className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <p className="text-xs text-muted-foreground">{plan.overall_advice}</p>
+              </div>
+            )}
+
             {plan.topics.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-2">
-                Great job! No weak topics found.
+                Great job! No weak topics found based on your study data.
               </p>
             ) : (
-              plan.topics.map((topic, idx) => {
-                const badge = getWeaknessBadge(topic.weakness_score);
+              plan.topics.map((topic) => {
+                const badge = getPriorityBadge(topic.priority);
+                const isExpanded = expandedTopics.has(topic.topic);
+
                 return (
-                  <div
+                  <Collapsible
                     key={topic.topic}
-                    className="rounded-lg border bg-card p-3 space-y-2"
+                    open={isExpanded}
+                    onOpenChange={() => toggleExpanded(topic.topic)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle
-                          className={`h-4 w-4 ${getWeaknessColor(topic.weakness_score)}`}
-                        />
-                        <span className="font-medium text-sm">{topic.topic}</span>
-                      </div>
-                      <Badge variant={badge.variant} className="text-xs">
-                        {badge.label}
-                      </Badge>
-                    </div>
+                    <div className="rounded-lg border bg-card overflow-hidden">
+                      <CollapsibleTrigger className="w-full p-3 text-left hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle
+                              className={`h-4 w-4 ${getWeaknessColor(topic.weakness_score)}`}
+                            />
+                            <span className="font-medium text-sm">{topic.topic}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={badge.className}>
+                              {badge.label}
+                            </Badge>
+                            {isExpanded ? (
+                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
 
-                    <div className="text-xs text-muted-foreground">
-                      <span className={getWeaknessColor(topic.weakness_score)}>
-                        {Math.round(topic.weakness_score * 100)}% weakness
-                      </span>
-                      <span className="mx-1">•</span>
-                      <span>{topic.missed_sessions} missed</span>
-                      <span className="mx-1">•</span>
-                      <span>{topic.low_xp_tasks} incomplete</span>
-                    </div>
+                        <div className="text-xs text-muted-foreground mt-1 flex flex-wrap gap-x-2">
+                          <span className={getWeaknessColor(topic.weakness_score)}>
+                            {Math.round(topic.weakness_score * 100)}% weakness
+                          </span>
+                          <span>•</span>
+                          <span>{topic.missed_sessions} missed</span>
+                          <span>•</span>
+                          <span>{topic.low_xp_tasks} incomplete</span>
+                        </div>
+                      </CollapsibleTrigger>
 
-                    {topic.sources[0] && (
-                      <div className="flex items-start gap-1.5 text-xs bg-muted/50 rounded p-2">
-                        <BookOpen className="h-3 w-3 mt-0.5 shrink-0 text-primary" />
-                        <span className="text-muted-foreground italic">
-                          "{topic.sources[0].quote}"
-                        </span>
-                      </div>
-                    )}
+                      <CollapsibleContent>
+                        <div className="px-3 pb-3 space-y-3 border-t pt-3">
+                          {/* AI Reason */}
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Why revision needed:</p>
+                            <p className="text-sm">{topic.weakness_reason}</p>
+                          </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-xs text-muted-foreground">
-                        Suggested: {topic.recommended_sessions} sessions
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 text-xs gap-1"
-                        onClick={() =>
-                          onAddToTimetable?.(topic.topic, topic.recommended_sessions)
-                        }
-                      >
-                        <Plus className="h-3 w-3" />
-                        Add to Timetable
-                      </Button>
+                          {/* AI Recommendation */}
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">Recommendation:</p>
+                            <p className="text-sm text-primary">{topic.recommendation}</p>
+                          </div>
+
+                          {/* Stats */}
+                          {(topic.total_study_minutes !== undefined || topic.avg_difficulty !== undefined) && (
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              {topic.total_study_minutes !== undefined && (
+                                <Badge variant="secondary">
+                                  {topic.total_study_minutes} min studied
+                                </Badge>
+                              )}
+                              {topic.avg_difficulty !== undefined && topic.avg_difficulty > 0 && (
+                                <Badge variant="secondary">
+                                  Avg difficulty: {topic.avg_difficulty}/10
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-xs text-muted-foreground">
+                              Suggested: {topic.recommended_sessions} sessions
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              className="h-7 text-xs gap-1"
+                              onClick={() =>
+                                onAddToTimetable?.(topic.topic, topic.recommended_sessions)
+                              }
+                            >
+                              <Plus className="h-3 w-3" />
+                              Add to Timetable
+                            </Button>
+                          </div>
+                        </div>
+                      </CollapsibleContent>
                     </div>
-                  </div>
+                  </Collapsible>
                 );
               })
             )}
@@ -175,8 +245,10 @@ export function RevisionPlanPanel({ onAddToTimetable }: RevisionPlanPanelProps) 
               variant="ghost"
               size="sm"
               className="w-full text-muted-foreground"
-              onClick={() => setPlan(null)}
+              onClick={generatePlan}
+              disabled={loading}
             >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Refresh Analysis
             </Button>
           </div>
