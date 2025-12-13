@@ -14,6 +14,7 @@ import { RevisionPlanPanel } from "@/components/planner/RevisionPlanPanel";
 import { MissedSessionDialog } from "@/components/planner/MissedSessionDialog";
 import { ScheduleChangesDialog } from "@/components/planner/ScheduleChangesDialog";
 import { DayTasksDialog } from "@/components/planner/DayTasksDialog";
+import { StudySessionTimer } from "@/components/planner/StudySessionTimer";
 import { isSameDay } from "date-fns";
 
 interface Task {
@@ -319,6 +320,7 @@ export default function Planner() {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
+            <StudySessionTimer onSessionComplete={fetchTasks} />
             <RevisionPlanPanel onAddToTimetable={handleAddRevisionToTimetable} />
             <AIInsightsPanel />
             <UpcomingEventsPanel tasks={tasks} />
