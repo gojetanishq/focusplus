@@ -9,10 +9,10 @@ import {
   Settings,
   Trophy,
   LogOut,
-  Brain,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import focusPlusLogo from "@/assets/focusplus-logo.png";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { Button } from "@/components/ui/button";
@@ -48,8 +48,8 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-3">
           <div className={cn("flex items-center gap-2", collapsed && "justify-center w-full")}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg focus-gradient shrink-0">
-              <Brain className="h-5 w-5 text-primary-foreground" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg overflow-hidden shrink-0">
+              <img src={focusPlusLogo} alt="FocusPlus Logo" className="h-9 w-9 object-contain" />
             </div>
             {!collapsed && (
               <span className="text-xl font-semibold focus-gradient-text">FocusPlus</span>
