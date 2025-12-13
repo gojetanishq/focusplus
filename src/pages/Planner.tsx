@@ -12,6 +12,7 @@ import { UpcomingEventsPanel } from "@/components/planner/UpcomingEventsPanel";
 import { QuickAddDialog } from "@/components/planner/QuickAddDialog";
 import { RevisionPlanPanel } from "@/components/planner/RevisionPlanPanel";
 import { MissedSessionDialog } from "@/components/planner/MissedSessionDialog";
+import { ScheduleChangesDialog } from "@/components/planner/ScheduleChangesDialog";
 
 interface Task {
   id: string;
@@ -31,6 +32,14 @@ interface SessionChange {
   reason: string;
 }
 
+interface ScheduleChange {
+  task_id: string;
+  task_title: string;
+  original_date: string;
+  new_due_date: string;
+  reason: string;
+}
+
 export default function Planner() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -42,6 +51,10 @@ export default function Planner() {
   const [missedDialogOpen, setMissedDialogOpen] = useState(false);
   const [replanChanges, setReplanChanges] = useState<SessionChange[]>([]);
   const [replanSummary, setReplanSummary] = useState("");
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [scheduleChanges, setScheduleChanges] = useState<ScheduleChange[]>([]);
+  const [scheduleSummary, setScheduleSummary] = useState("");
+  const [applyingChanges, setApplyingChanges] = useState(false);
 
   useEffect(() => {
     if (user) fetchTasks();
@@ -109,13 +122,12 @@ export default function Planner() {
       }
       
       const data = await response.json();
-      const insightCount = data.optimization?.insights?.length || 0;
-      const recommendation = data.optimization?.overall_recommendation || "Schedule analyzed successfully.";
+      const changes = data.optimization?.schedule_changes || [];
+      const summary = data.optimization?.overall_summary || "Schedule analyzed.";
       
-      toast({ 
-        title: "AI Analysis Complete!", 
-        description: `Generated ${insightCount} insights. ${recommendation.slice(0, 80)}${recommendation.length > 80 ? "..." : ""}` 
-      });
+      setScheduleChanges(changes);
+      setScheduleSummary(summary);
+      setScheduleDialogOpen(true);
     } catch (error) {
       console.error("Error optimizing:", error);
       toast({ 
@@ -125,6 +137,42 @@ export default function Planner() {
       });
     } finally {
       setOptimizing(false);
+    }
+  };
+
+  const handleApplyScheduleChanges = async () => {
+    setApplyingChanges(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/timetable-generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ 
+          userId: user!.id, 
+          applyChanges: true, 
+          proposedChanges: scheduleChanges 
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to apply changes");
+
+      toast({ 
+        title: "Schedule Updated!", 
+        description: `Successfully rescheduled ${scheduleChanges.length} tasks.` 
+      });
+      setScheduleDialogOpen(false);
+      fetchTasks();
+    } catch (error) {
+      console.error("Error applying changes:", error);
+      toast({ 
+        title: "Error", 
+        description: "Failed to apply schedule changes", 
+        variant: "destructive" 
+      });
+    } finally {
+      setApplyingChanges(false);
     }
   };
 
@@ -257,6 +305,16 @@ export default function Planner() {
           onOpenChange={setMissedDialogOpen}
           changes={replanChanges}
           summary={replanSummary}
+        />
+
+        {/* Schedule Changes Dialog */}
+        <ScheduleChangesDialog
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          changes={scheduleChanges}
+          summary={scheduleSummary}
+          onApply={handleApplyScheduleChanges}
+          applying={applyingChanges}
         />
       </div>
     </AppLayout>

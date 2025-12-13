@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { userId } = await req.json();
+    const { userId, applyChanges, proposedChanges } = await req.json();
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -18,11 +18,35 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    // If applying changes, update task due dates
+    if (applyChanges && proposedChanges && Array.isArray(proposedChanges)) {
+      console.log("Applying schedule changes:", proposedChanges.length);
+      
+      for (const change of proposedChanges) {
+        if (change.task_id && change.new_due_date) {
+          const { error } = await supabase
+            .from("tasks")
+            .update({ due_date: change.new_due_date })
+            .eq("id", change.task_id)
+            .eq("user_id", userId);
+          
+          if (error) {
+            console.error("Error updating task:", change.task_id, error);
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        message: `Applied ${proposedChanges.length} schedule changes.`,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Fetch user's tasks and study sessions
     const [tasksResult, sessionsResult, profileResult] = await Promise.all([
       supabase.from("tasks").select("*").eq("user_id", userId),
       supabase.from("study_sessions").select("*").eq("user_id", userId).order("started_at", { ascending: false }).limit(20),
-      supabase.from("profiles").select("daily_focus_hours, study_goal").eq("user_id", userId).single(),
+      supabase.from("profiles").select("daily_focus_hours, study_goal").eq("user_id", userId).maybeSingle(),
     ]);
 
     const tasks = tasksResult.data || [];
@@ -31,6 +55,14 @@ serve(async (req) => {
 
     const pendingTasks = tasks.filter(t => t.status === "pending");
     const completedTasks = tasks.filter(t => t.status === "completed");
+
+    // Group tasks by date
+    const tasksByDate: Record<string, typeof tasks> = {};
+    pendingTasks.forEach(task => {
+      const dateKey = task.due_date ? new Date(task.due_date).toISOString().split("T")[0] : "no_date";
+      if (!tasksByDate[dateKey]) tasksByDate[dateKey] = [];
+      tasksByDate[dateKey].push(task);
+    });
 
     // Calculate study patterns
     const sessionsByHour: Record<number, number> = {};
@@ -44,33 +76,42 @@ serve(async (req) => {
       .slice(0, 3)
       .map(([hour]) => parseInt(hour));
 
-    // Get subjects distribution
-    const subjectMinutes: Record<string, number> = {};
-    studySessions.forEach(s => {
-      const subject = s.subject || "General";
-      subjectMinutes[subject] = (subjectMinutes[subject] || 0) + s.duration_minutes;
-    });
+    // Build detailed task list for AI
+    const taskListForAI = pendingTasks.map(t => ({
+      id: t.id,
+      title: t.title,
+      subject: t.subject || "General",
+      priority: t.priority || "medium",
+      due_date: t.due_date,
+      estimated_minutes: t.estimated_minutes || 45,
+    }));
 
-    // Build AI prompt with user data
-    const systemPrompt = `You are an AI study schedule optimizer. Analyze the student's data and provide personalized schedule optimization suggestions. Be specific and actionable. Always explain your reasoning.`;
+    const today = new Date().toISOString().split("T")[0];
+    
+    const systemPrompt = `You are an AI study schedule optimizer. Your job is to reschedule tasks to help the student complete them more easily. Analyze the workload per day and redistribute tasks to avoid overwhelming days. Always move tasks to realistic dates and explain each change.`;
 
-    const userPrompt = `Analyze this student's study data and provide optimization insights:
+    const userPrompt = `Analyze and reschedule this student's tasks:
 
-PENDING TASKS (${pendingTasks.length}):
-${pendingTasks.map(t => `- ${t.title} | Subject: ${t.subject || "Not specified"} | Priority: ${t.priority} | Due: ${t.due_date || "No deadline"}`).join("\n") || "No pending tasks"}
+TODAY'S DATE: ${today}
 
-COMPLETED TASKS (${completedTasks.length}):
-${completedTasks.slice(0, 5).map(t => `- ${t.title} | Subject: ${t.subject || "Not specified"}`).join("\n") || "No completed tasks"}
+PENDING TASKS:
+${JSON.stringify(taskListForAI, null, 2)}
 
-RECENT STUDY SESSIONS:
-${studySessions.slice(0, 5).map(s => `- ${s.subject || "Study"} | ${s.duration_minutes} mins | ${new Date(s.started_at).toLocaleDateString()}`).join("\n") || "No sessions recorded"}
+TASKS PER DAY:
+${Object.entries(tasksByDate).map(([date, t]) => `${date}: ${t.length} tasks (${t.map(task => task.title).join(", ")})`).join("\n")}
 
 STUDY PATTERNS:
-- Peak productivity hours: ${peakHours.length > 0 ? peakHours.map(h => `${h}:00`).join(", ") : "Not enough data"}
-- Daily focus goal: ${profile?.daily_focus_hours || 4} hours
-- Study goal: ${profile?.study_goal || "Not set"}
+- Peak productivity hours: ${peakHours.length > 0 ? peakHours.map(h => `${h}:00`).join(", ") : "Evening (18:00)"}
+- Daily focus capacity: ${profile?.daily_focus_hours || 4} hours
+- Recommended max tasks per day: 3-4
 
-Provide optimization analysis.`;
+INSTRUCTIONS:
+1. Identify overloaded days (more than 3 tasks)
+2. Identify tasks with passed due dates that need rescheduling
+3. Redistribute tasks to balance the workload
+4. Keep high-priority tasks closer to their original dates
+5. For each moved task, provide a clear reason
+6. Tasks without dates should be scheduled based on priority`;
 
     console.log("Calling Lovable AI for schedule optimization...");
 
@@ -90,57 +131,58 @@ Provide optimization analysis.`;
           {
             type: "function",
             function: {
-              name: "optimize_schedule",
-              description: "Provide schedule optimization with explainable insights",
+              name: "reschedule_tasks",
+              description: "Propose task schedule changes to balance workload",
               parameters: {
                 type: "object",
                 properties: {
+                  schedule_changes: {
+                    type: "array",
+                    description: "List of proposed task date changes",
+                    items: {
+                      type: "object",
+                      properties: {
+                        task_id: { type: "string", description: "The task ID to reschedule" },
+                        task_title: { type: "string", description: "Task title for display" },
+                        original_date: { type: "string", description: "Original due date (ISO format or 'Not set')" },
+                        new_due_date: { type: "string", description: "New proposed due date (ISO 8601 format)" },
+                        reason: { type: "string", description: "Human-readable explanation for this change" },
+                      },
+                      required: ["task_id", "task_title", "original_date", "new_due_date", "reason"],
+                    },
+                  },
+                  daily_summary: {
+                    type: "array",
+                    description: "Summary of tasks per day after optimization",
+                    items: {
+                      type: "object",
+                      properties: {
+                        date: { type: "string" },
+                        task_count: { type: "number" },
+                        tasks: { type: "array", items: { type: "string" } },
+                      },
+                    },
+                  },
                   insights: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        type: { type: "string", enum: ["suggestion", "warning", "stat", "tip"] },
+                        type: { type: "string", enum: ["suggestion", "warning", "improvement"] },
                         title: { type: "string" },
                         description: { type: "string" },
                         reasoning: { type: "string" },
-                        priority: { type: "string", enum: ["high", "medium", "low"] },
                       },
-                      required: ["type", "title", "description", "reasoning"],
                     },
                   },
-                  recommended_sessions: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        subject: { type: "string" },
-                        suggested_time: { type: "string" },
-                        duration_minutes: { type: "number" },
-                        reason: { type: "string" },
-                      },
-                      required: ["subject", "suggested_time", "duration_minutes", "reason"],
-                    },
-                  },
-                  peak_hours: {
-                    type: "array",
-                    items: { type: "string" },
-                  },
-                  workload_balance: {
-                    type: "object",
-                    properties: {
-                      status: { type: "string", enum: ["balanced", "heavy", "light"] },
-                      message: { type: "string" },
-                    },
-                  },
-                  overall_recommendation: { type: "string" },
+                  overall_summary: { type: "string", description: "Brief summary of all changes made" },
                 },
-                required: ["insights", "recommended_sessions", "overall_recommendation"],
+                required: ["schedule_changes", "overall_summary"],
               },
             },
           },
         ],
-        tool_choice: { type: "function", function: { name: "optimize_schedule" } },
+        tool_choice: { type: "function", function: { name: "reschedule_tasks" } },
       }),
     });
 
@@ -152,7 +194,7 @@ Provide optimization analysis.`;
         });
       }
       if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }), {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -174,53 +216,47 @@ Provide optimization analysis.`;
     }
 
     // Fallback if AI parsing fails
-    if (!optimization) {
+    if (!optimization || !optimization.schedule_changes) {
+      // Smart fallback: distribute overloaded days
+      const changes: any[] = [];
+      const overloadedDays = Object.entries(tasksByDate).filter(([_, t]) => t.length > 3);
+      
+      overloadedDays.forEach(([date, dayTasks]) => {
+        const excessTasks = dayTasks.slice(3);
+        excessTasks.forEach((task, i) => {
+          const newDate = new Date(date);
+          newDate.setDate(newDate.getDate() + i + 1);
+          changes.push({
+            task_id: task.id,
+            task_title: task.title,
+            original_date: date,
+            new_due_date: newDate.toISOString(),
+            reason: `Moved to balance workload. Original day had ${dayTasks.length} tasks.`,
+          });
+        });
+      });
+
       optimization = {
-        insights: [
-          {
-            type: "suggestion",
-            title: "Start with High Priority Tasks",
-            description: "Focus on your high-priority pending tasks first thing in the morning.",
-            reasoning: `You have ${pendingTasks.filter(t => t.priority === "high").length} high-priority tasks pending.`,
-            priority: "high",
-          },
-          {
-            type: "stat",
-            title: "Your Peak Hours",
-            description: peakHours.length > 0 
-              ? `You're most productive around ${peakHours.map(h => `${h}:00`).join(", ")}.`
-              : "Track more study sessions to discover your peak hours.",
-            reasoning: "Based on your historical study session data.",
-            priority: "medium",
-          },
-        ],
-        recommended_sessions: pendingTasks.slice(0, 3).map((t, i) => ({
-          subject: t.subject || t.title,
-          suggested_time: `${9 + i * 2}:00 AM`,
-          duration_minutes: 60,
-          reason: `Priority: ${t.priority}`,
-        })),
-        overall_recommendation: "Complete high-priority tasks during your peak productivity hours for best results.",
+        schedule_changes: changes,
+        overall_summary: changes.length > 0 
+          ? `Redistributed ${changes.length} tasks from overloaded days.`
+          : "Your schedule looks balanced! No changes needed.",
+        insights: [],
       };
     }
 
-    // Add source attribution for explainability
-    const sources = [
-      { type: "tasks", count: tasks.length, description: "Your task data" },
-      { type: "sessions", count: studySessions.length, description: "Recent study sessions" },
-      { type: "patterns", description: "Your study patterns and habits" },
-    ];
-
     return new Response(JSON.stringify({
       optimization,
-      sources,
+      sources: [
+        { type: "tasks", count: pendingTasks.length, description: "Your pending tasks" },
+        { type: "sessions", count: studySessions.length, description: "Study session history" },
+      ],
       generated_at: new Date().toISOString(),
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (e) {
     console.error("timetable-generate error:", e);
-    const errorMessage = e instanceof Error ? e.message : "Unknown error";
-    return new Response(JSON.stringify({ error: errorMessage }), { 
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { 
       status: 500, 
       headers: { ...corsHeaders, "Content-Type": "application/json" } 
     });
