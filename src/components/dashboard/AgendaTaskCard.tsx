@@ -23,7 +23,7 @@ interface DifficultyAnalysis {
   difficulty_label: string;
   reasoning_summary: string[];
   reasoning_signals: string[];
-  sources: Array<{ title: string; description: string; type: string }>;
+  sources: Array<{ title: string; description: string; type: string; url?: string }>;
   confidence: number;
   estimated_time_minutes: number;
 }
@@ -42,6 +42,46 @@ interface Task {
 interface AgendaTaskCardProps {
   task: Task;
   onComplete: (taskId: string) => void;
+}
+
+// Circular Progress Component
+function CircularProgress({ value, size = 48, strokeWidth = 4 }: { value: number; size?: number; strokeWidth?: number }) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const offset = circumference - (value / 100) * circumference;
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="transform -rotate-90">
+        {/* Background circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-muted"
+        />
+        {/* Progress circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className="text-primary transition-all duration-500"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span className="text-xs font-semibold">{value}%</span>
+      </div>
+    </div>
+  );
 }
 
 export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
@@ -106,6 +146,12 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
   const formatTime = (date: string | null) => {
     if (!date) return null;
     return format(new Date(date), "h:mm a");
+  };
+
+  const handleResourceClick = (url?: string) => {
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   return (
@@ -247,13 +293,22 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                       {analysis.sources.map((source, i) => (
                         <div key={i} className="rounded-lg bg-muted/50 p-3">
                           <div className="flex items-start justify-between gap-2">
-                            <div>
+                            <div className="flex-1">
                               <p className="font-medium text-sm">{source.title}</p>
                               <p className="text-xs text-muted-foreground mt-1 italic">
                                 "{source.description}"
                               </p>
                             </div>
-                            <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 flex-shrink-0 hover:bg-primary/10"
+                              onClick={() => handleResourceClick(source.url)}
+                              disabled={!source.url}
+                              title={source.url ? "Open resource" : "No link available"}
+                            >
+                              <ExternalLink className={`h-4 w-4 ${source.url ? "text-primary" : "text-muted-foreground"}`} />
+                            </Button>
                           </div>
                           <Badge variant="outline" className="mt-2 text-xs">
                             {source.type}
@@ -264,10 +319,15 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                   </div>
                 )}
 
-                {/* Confidence & Time */}
-                <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t border-border/50">
-                  <span>{t("difficulty.confidence")}: {analysis.confidence}%</span>
-                  <span>{t("difficulty.estTime")}: {analysis.estimated_time_minutes}m</span>
+                {/* Confidence & Time with Circular Progress */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <div className="flex items-center gap-3">
+                    <CircularProgress value={analysis.confidence} size={48} strokeWidth={4} />
+                    <span className="text-sm text-muted-foreground">{t("difficulty.confidence")}</span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {t("difficulty.estTime")}: {analysis.estimated_time_minutes}m
+                  </span>
                 </div>
               </div>
             )}

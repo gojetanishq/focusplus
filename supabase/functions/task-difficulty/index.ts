@@ -101,14 +101,15 @@ Provide a comprehensive difficulty analysis. Remember to respond ENTIRELY in ${l
                         title: { type: "string", description: `Resource title in ${langName}` },
                         description: { type: "string", description: `Brief description in ${langName}` },
                         type: { type: "string", description: `Type of resource in ${langName} (e.g., Textbook, Course, Research)` },
+                        url: { type: "string", description: "URL link to the resource (use real URLs like Amazon book links, MIT OCW, Khan Academy, etc.)" },
                       },
-                      required: ["title", "description", "type"],
+                      required: ["title", "description", "type", "url"],
                     },
-                    description: `2-3 educational resources that support this analysis. All text MUST be in ${langName}.`,
+                    description: `2-3 educational resources with real URLs that support this analysis. All text MUST be in ${langName}.`,
                   },
                   confidence: {
                     type: "number",
-                    description: "Confidence level of the analysis from 0-100",
+                    description: "Confidence level of the analysis from 0-100, based on how well the reasoning and sources support the difficulty assessment",
                   },
                   estimated_time_minutes: {
                     type: "number",
