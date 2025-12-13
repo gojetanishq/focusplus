@@ -33,7 +33,7 @@ export default function Settings() {
     study_goal: "",
     daily_focus_hours: 4,
     notification_enabled: true,
-    theme_preference: "dark",
+    theme_preference: null,
   });
 
   useEffect(() => {
@@ -108,6 +108,9 @@ export default function Settings() {
   };
 
   useEffect(() => {
+    // Only apply theme when explicitly set (not null), prevents flash on initial load
+    if (profile.theme_preference === null) return;
+    
     if (profile.theme_preference === "dark") {
       document.documentElement.classList.add("dark");
     } else {
