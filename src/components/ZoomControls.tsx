@@ -1,6 +1,7 @@
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useZoom } from "@/hooks/useZoom";
+import { useLanguage } from "@/hooks/useLanguage";
 import {
   Tooltip,
   TooltipContent,
@@ -10,6 +11,7 @@ import {
 
 export function ZoomControls() {
   const { zoomLevel, zoomIn, zoomOut, resetZoom } = useZoom();
+  const { t } = useLanguage();
   const percentage = Math.round(zoomLevel * 100);
 
   return (
@@ -27,13 +29,13 @@ export function ZoomControls() {
               className="h-8 w-8 rounded-full"
               onClick={zoomOut}
               disabled={zoomLevel <= 0.75}
-              aria-label="Zoom out"
+              aria-label={t("zoom.out")}
             >
               <ZoomOut className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>Zoom out</p>
+            <p>{t("zoom.out")}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -44,13 +46,13 @@ export function ZoomControls() {
               size="sm"
               className="h-8 min-w-[3rem] rounded-full px-2 text-xs font-medium"
               onClick={resetZoom}
-              aria-label={`Current zoom: ${percentage}%. Click to reset.`}
+              aria-label={t("zoom.reset")}
             >
               {percentage}%
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>Reset to 100%</p>
+            <p>{t("zoom.reset")}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -62,13 +64,13 @@ export function ZoomControls() {
               className="h-8 w-8 rounded-full"
               onClick={zoomIn}
               disabled={zoomLevel >= 1.5}
-              aria-label="Zoom in"
+              aria-label={t("zoom.in")}
             >
               <ZoomIn className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>Zoom in</p>
+            <p>{t("zoom.in")}</p>
           </TooltipContent>
         </Tooltip>
       </div>

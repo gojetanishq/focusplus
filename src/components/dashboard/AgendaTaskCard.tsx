@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/hooks/useLanguage";
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -45,6 +46,7 @@ interface AgendaTaskCardProps {
 }
 
 export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [analysis, setAnalysis] = useState<DifficultyAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
       setAnalysis(data);
     } catch (err) {
       console.error("Error fetching difficulty:", err);
-      setError(err instanceof Error ? err.message : "Failed to analyze difficulty");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -155,7 +157,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                       ) : (
                         <>
                           <Sparkles className="h-3 w-3" />
-                          Analyze
+                          {t("difficulty.analyze")}
                           <ChevronDown className="h-3 w-3" />
                         </>
                       )}
@@ -172,7 +174,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
             {loading && (
               <div className="flex items-center justify-center gap-2 p-6 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Analyzing difficulty with AI...</span>
+                <span>{t("difficulty.analyzing")}</span>
               </div>
             )}
 
@@ -180,7 +182,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
               <div className="p-4 text-center text-destructive">
                 <p>{error}</p>
                 <Button variant="link" onClick={fetchDifficultyAnalysis} className="mt-2">
-                  Try again
+                  {t("difficulty.tryAgain")}
                 </Button>
               </div>
             )}
@@ -190,7 +192,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                 {/* Difficulty Score */}
                 <div>
                   <div className="flex items-center justify-between text-sm mb-1">
-                    <span className="text-muted-foreground">Difficulty Score</span>
+                    <span className="text-muted-foreground">{t("difficulty.score")}</span>
                     <span className="font-semibold">{analysis.difficulty_score}/100</span>
                   </div>
                   <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -205,7 +207,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                 <div className="rounded-lg bg-muted/50 p-4">
                   <h4 className="flex items-center gap-2 font-medium mb-3">
                     <Brain className="h-4 w-4 text-primary" />
-                    Why {analysis.difficulty_label}?
+                    {t("difficulty.why")} {analysis.difficulty_label}?
                   </h4>
                   <ul className="space-y-2">
                     {analysis.reasoning_summary.map((reason, i) => (
@@ -221,7 +223,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                 <div>
                   <h4 className="flex items-center gap-2 font-medium mb-2 text-sm">
                     <Sparkles className="h-4 w-4 text-primary" />
-                    Reasoning Signals
+                    {t("difficulty.reasoningSignals")}
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {analysis.reasoning_signals.map((signal, i) => (
@@ -236,7 +238,7 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
                 <div>
                   <h4 className="flex items-center gap-2 font-medium mb-2 text-sm">
                     <BookOpen className="h-4 w-4 text-primary" />
-                    Resources Used
+                    {t("difficulty.resourcesUsed")}
                   </h4>
                   <div className="space-y-2">
                     {analysis.sources.map((source, i) => (
@@ -260,8 +262,8 @@ export function AgendaTaskCard({ task, onComplete }: AgendaTaskCardProps) {
 
                 {/* Confidence & Time */}
                 <div className="flex items-center justify-between text-sm text-muted-foreground pt-2 border-t border-border/50">
-                  <span>Confidence: {analysis.confidence}%</span>
-                  <span>Est. Time: {analysis.estimated_time_minutes}m</span>
+                  <span>{t("difficulty.confidence")}: {analysis.confidence}%</span>
+                  <span>{t("difficulty.estTime")}: {analysis.estimated_time_minutes}m</span>
                 </div>
               </div>
             )}

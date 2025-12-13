@@ -173,5 +173,21 @@
     "hi": "हिंदी (Hindi)",
     "te": "తెలుగు (Telugu)",
     "ta": "தமிழ் (Tamil)"
+  },
+  "zoom": {
+    "in": "Zoom in",
+    "out": "Zoom out",
+    "reset": "Reset to 100%"
+  },
+  "difficulty": {
+    "score": "Difficulty Score",
+    "why": "Why",
+    "reasoningSignals": "Reasoning Signals",
+    "resourcesUsed": "Resources Used",
+    "analyze": "Analyze",
+    "analyzing": "Analyzing difficulty with AI...",
+    "tryAgain": "Try again",
+    "confidence": "Confidence",
+    "estTime": "Est. Time"
   }
 }
