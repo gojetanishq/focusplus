@@ -10,6 +10,8 @@ import { PlannerCalendar } from "@/components/planner/PlannerCalendar";
 import { AIInsightsPanel } from "@/components/planner/AIInsightsPanel";
 import { UpcomingEventsPanel } from "@/components/planner/UpcomingEventsPanel";
 import { QuickAddDialog } from "@/components/planner/QuickAddDialog";
+import { RevisionPlanPanel } from "@/components/planner/RevisionPlanPanel";
+import { MissedSessionDialog } from "@/components/planner/MissedSessionDialog";
 
 interface Task {
   id: string;
@@ -21,6 +23,14 @@ interface Task {
   estimated_minutes: number | null;
 }
 
+interface SessionChange {
+  session_id: string;
+  subject: string;
+  original_date: string;
+  new_date: string;
+  reason: string;
+}
+
 export default function Planner() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -29,6 +39,9 @@ export default function Planner() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
+  const [missedDialogOpen, setMissedDialogOpen] = useState(false);
+  const [replanChanges, setReplanChanges] = useState<SessionChange[]>([]);
+  const [replanSummary, setReplanSummary] = useState("");
 
   useEffect(() => {
     if (user) fetchTasks();
@@ -81,7 +94,6 @@ export default function Planner() {
   const handleOptimizeSchedule = async () => {
     setOptimizing(true);
     try {
-      // Call the timetable-generate function
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/timetable-generate`, {
         method: "POST",
         headers: {
@@ -99,6 +111,68 @@ export default function Planner() {
       toast({ title: "AI optimization applied", description: "Schedule has been optimized based on your patterns." });
     } finally {
       setOptimizing(false);
+    }
+  };
+
+  const handleAddRevisionToTimetable = async (topic: string, sessions: number) => {
+    try {
+      const startDate = new Date();
+      
+      for (let i = 0; i < sessions; i++) {
+        const sessionDate = new Date(startDate);
+        sessionDate.setDate(startDate.getDate() + i + 1);
+        sessionDate.setHours(10, 0, 0, 0);
+
+        await supabase.from("study_sessions").insert({
+          user_id: user!.id,
+          subject: topic,
+          started_at: sessionDate.toISOString(),
+          duration_minutes: 45,
+          notes: `Revision session ${i + 1} of ${sessions}`,
+        });
+      }
+
+      toast({
+        title: "Revision sessions added",
+        description: `Added ${sessions} revision sessions for ${topic}.`,
+      });
+    } catch (error) {
+      console.error("Error adding revision sessions:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add revision sessions",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMarkSessionMissed = async (sessionId: string) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/timetable-replan`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ sessionId, userId: user!.id }),
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to replan");
+
+      const data = await response.json();
+      setReplanChanges(data.changes_log || []);
+      setReplanSummary(data.summary || "Session has been rescheduled.");
+      setMissedDialogOpen(true);
+    } catch (error) {
+      console.error("Error replanning session:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reschedule session",
+        variant: "destructive",
+      });
     }
   };
 
@@ -150,6 +224,7 @@ export default function Planner() {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
+            <RevisionPlanPanel onAddToTimetable={handleAddRevisionToTimetable} />
             <AIInsightsPanel />
             <UpcomingEventsPanel tasks={tasks} />
           </div>
@@ -160,6 +235,14 @@ export default function Planner() {
           open={quickAddOpen}
           onOpenChange={setQuickAddOpen}
           onAdd={handleQuickAdd}
+        />
+
+        {/* Missed Session Replan Dialog */}
+        <MissedSessionDialog
+          open={missedDialogOpen}
+          onOpenChange={setMissedDialogOpen}
+          changes={replanChanges}
+          summary={replanSummary}
         />
       </div>
     </AppLayout>
