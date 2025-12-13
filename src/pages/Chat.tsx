@@ -38,7 +38,7 @@ interface Message {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`;
 
 export default function Chat() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { t, language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -83,14 +83,13 @@ export default function Chat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({
           messages: messages.map((m) => ({ role: m.role, content: m.content })).concat([
             { role: "user", content: userMessage.content },
           ]),
           conversationId,
-          userId: user!.id,
           language,
         }),
       });
