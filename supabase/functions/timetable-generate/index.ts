@@ -10,13 +10,45 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { userId, applyChanges, proposedChanges } = await req.json();
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // Get the authorization header to extract user from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { applyChanges, proposedChanges } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
+
+    // Create client with anon key to verify user from JWT
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
+    );
+
+    // Get authenticated user from JWT
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = user.id;
+    console.log("Authenticated user ID:", userId);
 
     // If applying changes, update task due dates
     if (applyChanges && proposedChanges && Array.isArray(proposedChanges)) {
@@ -24,11 +56,11 @@ serve(async (req) => {
       
       for (const change of proposedChanges) {
         if (change.task_id && change.new_due_date) {
+          // RLS will ensure user can only update their own tasks
           const { error } = await supabase
             .from("tasks")
             .update({ due_date: change.new_due_date })
-            .eq("id", change.task_id)
-            .eq("user_id", userId);
+            .eq("id", change.task_id);
           
           if (error) {
             console.error("Error updating task:", change.task_id, error);
@@ -42,11 +74,11 @@ serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Fetch user's tasks and study sessions
+    // Fetch user's tasks and study sessions - RLS will restrict to user's own data
     const [tasksResult, sessionsResult, profileResult] = await Promise.all([
-      supabase.from("tasks").select("*").eq("user_id", userId),
-      supabase.from("study_sessions").select("*").eq("user_id", userId).order("started_at", { ascending: false }).limit(20),
-      supabase.from("profiles").select("daily_focus_hours, study_goal").eq("user_id", userId).maybeSingle(),
+      supabase.from("tasks").select("*"),
+      supabase.from("study_sessions").select("*").order("started_at", { ascending: false }).limit(20),
+      supabase.from("profiles").select("daily_focus_hours, study_goal").maybeSingle(),
     ]);
 
     const tasks = tasksResult.data || [];

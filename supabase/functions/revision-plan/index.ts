@@ -12,24 +12,50 @@ serve(async (req) => {
   }
 
   try {
-    const { userId } = await req.json();
-    console.log("Generating revision plan for user:", userId);
+    // Get the authorization header to extract user from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
+    // Create client with anon key to verify user from JWT
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
+
+    // Get authenticated user from JWT
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = user.id;
+    console.log("Generating revision plan for authenticated user:", userId);
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Fetch all user data
+    // Fetch all user data - RLS will restrict to user's own data
     const [tasksResult, sessionsResult, reviewsResult] = await Promise.all([
-      supabase.from("tasks").select("*").eq("user_id", userId),
-      supabase.from("study_sessions").select("*").eq("user_id", userId),
-      supabase.from("task_reviews").select("*, tasks!inner(subject, user_id, title)").eq("tasks.user_id", userId),
+      supabase.from("tasks").select("*"),
+      supabase.from("study_sessions").select("*"),
+      supabase.from("task_reviews").select("*, tasks!inner(subject, title)"),
     ]);
 
     const tasks = tasksResult.data || [];

@@ -1,16 +1,16 @@
 project_id = "kfxnfovyblpzxfapvsob"
 
 [functions.ai-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.timetable-generate]
-verify_jwt = false
+verify_jwt = true
 
 [functions.task-difficulty]
-verify_jwt = false
+verify_jwt = true
 
 [functions.revision-plan]
-verify_jwt = false
+verify_jwt = true
 
 [functions.timetable-replan]
-verify_jwt = false
+verify_jwt = true

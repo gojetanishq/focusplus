@@ -17,16 +17,43 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, language = "en", userId } = await req.json();
+    // Get the authorization header to extract user from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { messages, language = "en" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
     
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+    // Create client with anon key to verify user from JWT
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    });
+
+    // Get authenticated user from JWT
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = user.id;
     const languageName = languageNames[language] || "English";
     console.log(`User language preference: ${language} (${languageName})`);
-    console.log(`User ID: ${userId}`);
+    console.log(`Authenticated user ID: ${userId}`);
 
     // Check if user is asking about task management
     const lastUserMessage = messages[messages.length - 1]?.content?.toLowerCase() || "";
@@ -50,7 +77,7 @@ serve(async (req) => {
                           lastUserMessage.includes("कार्य पूरा") || // Hindi complete
                           lastUserMessage.includes("టాస్క్ జోడించు") || // Telugu add
                           lastUserMessage.includes("టాస్క్ తొలగించు") || // Telugu delete
-                          lastUserMessage.includes("పணி சேர்க்க") || // Tamil add
+                          lastUserMessage.includes("పణి சேர்க்க") || // Tamil add
                           lastUserMessage.includes("பணி நீக்க"); // Tamil delete
 
     const systemPrompt = `You are FocusPlus AI, an explainable multilingual study assistant that can manage tasks.
@@ -164,10 +191,9 @@ Be concise and transparent. YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
     const initialData = await initialResponse.json();
     const choice = initialData.choices?.[0];
     
-    // Check if AI wants to call a function
-    if (choice?.message?.tool_calls?.length > 0 && userId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+    // Check if AI wants to call a function - use authenticated user's supabase client
+    if (choice?.message?.tool_calls?.length > 0) {
       const toolCall = choice.message.tool_calls[0];
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       
       // Handle add_tasks
       if (toolCall.function.name === "add_tasks") {
@@ -234,11 +260,10 @@ Be concise and transparent. YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
           const deletedTasks: Array<{ title: string }> = [];
           
           for (const term of searchTerms) {
-            // Find tasks matching the search term
+            // Find tasks matching the search term - RLS will restrict to user's own tasks
             const { data: matchingTasks, error: findError } = await supabase
               .from("tasks")
               .select("id, title")
-              .eq("user_id", userId)
               .ilike("title", `%${term}%`);
             
             if (findError) {
@@ -297,11 +322,10 @@ Be concise and transparent. YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
           const completedTasks: Array<{ title: string }> = [];
           
           for (const term of searchTerms) {
-            // Find pending tasks matching the search term
+            // Find pending tasks matching the search term - RLS will restrict to user's own tasks
             const { data: matchingTasks, error: findError } = await supabase
               .from("tasks")
               .select("id, title")
-              .eq("user_id", userId)
               .eq("status", "pending")
               .ilike("title", `%${term}%`);
             
@@ -376,15 +400,15 @@ Be concise and transparent. YOUR ENTIRE RESPONSE MUST BE IN ${languageName}.`;
   }
 });
 
-function createStreamResponse(content: string, corsHeaders: Record<string, string>) {
+function createStreamResponse(content: string, headers: Record<string, string>) {
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     start(controller) {
-      const data = JSON.stringify({ choices: [{ delta: { content } }] });
-      controller.enqueue(encoder.encode(`data: ${data}\n\n`));
-      controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+      const data = { choices: [{ delta: { content }, finish_reason: "stop" }] };
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       controller.close();
-    }
+    },
   });
-  return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
+  return new Response(stream, { headers: { ...headers, "Content-Type": "text/event-stream" } });
 }
