@@ -20,13 +20,40 @@ serve(async (req) => {
   }
 
   try {
-    const { sessionId, userId } = await req.json();
-    console.log("Replanning missed session:", sessionId, "for user:", userId);
+    // Get the authorization header to extract user from JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
+    const { sessionId } = await req.json();
+
+    // Create client with anon key first to verify user
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      {
+        global: {
+          headers: { Authorization: authHeader },
+        },
+      }
     );
+
+    // Get authenticated user from JWT
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userId = user.id;
+    console.log("Replanning missed session:", sessionId, "for user:", userId);
 
     // Fetch the missed session
     const { data: missedSession, error: sessionError } = await supabase
