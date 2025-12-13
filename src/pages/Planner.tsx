@@ -103,12 +103,26 @@ export default function Planner() {
         body: JSON.stringify({ userId: user!.id }),
       });
 
-      if (!response.ok) throw new Error("Failed to optimize");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to optimize");
+      }
       
-      toast({ title: "Schedule optimized!", description: "Your schedule has been AI-optimized." });
+      const data = await response.json();
+      const insightCount = data.optimization?.insights?.length || 0;
+      const recommendation = data.optimization?.overall_recommendation || "Schedule analyzed successfully.";
+      
+      toast({ 
+        title: "AI Analysis Complete!", 
+        description: `Generated ${insightCount} insights. ${recommendation.slice(0, 80)}${recommendation.length > 80 ? "..." : ""}` 
+      });
     } catch (error) {
       console.error("Error optimizing:", error);
-      toast({ title: "AI optimization applied", description: "Schedule has been optimized based on your patterns." });
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to optimize schedule", 
+        variant: "destructive" 
+      });
     } finally {
       setOptimizing(false);
     }
