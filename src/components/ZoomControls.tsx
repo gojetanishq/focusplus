@@ -1,7 +1,6 @@
 import { ZoomIn, ZoomOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useZoom } from "@/hooks/useZoom";
-import { useLanguage } from "@/hooks/useLanguage";
 import {
   Tooltip,
   TooltipContent,
@@ -9,9 +8,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Simple fallback translations for zoom controls
+const zoomLabels = {
+  in: "Zoom in",
+  out: "Zoom out",
+  reset: "Reset to 100%"
+};
+
 export function ZoomControls() {
   const { zoomLevel, zoomIn, zoomOut, resetZoom } = useZoom();
-  const { t } = useLanguage();
   const percentage = Math.round(zoomLevel * 100);
 
   return (
@@ -29,13 +34,13 @@ export function ZoomControls() {
               className="h-8 w-8 rounded-full"
               onClick={zoomOut}
               disabled={zoomLevel <= 0.75}
-              aria-label={t("zoom.out")}
+              aria-label={zoomLabels.out}
             >
               <ZoomOut className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>{t("zoom.out")}</p>
+            <p>{zoomLabels.out}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -46,13 +51,13 @@ export function ZoomControls() {
               size="sm"
               className="h-8 min-w-[3rem] rounded-full px-2 text-xs font-medium"
               onClick={resetZoom}
-              aria-label={t("zoom.reset")}
+              aria-label={zoomLabels.reset}
             >
               {percentage}%
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>{t("zoom.reset")}</p>
+            <p>{zoomLabels.reset}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -64,13 +69,13 @@ export function ZoomControls() {
               className="h-8 w-8 rounded-full"
               onClick={zoomIn}
               disabled={zoomLevel >= 1.5}
-              aria-label={t("zoom.in")}
+              aria-label={zoomLabels.in}
             >
               <ZoomIn className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>{t("zoom.in")}</p>
+            <p>{zoomLabels.in}</p>
           </TooltipContent>
         </Tooltip>
       </div>
