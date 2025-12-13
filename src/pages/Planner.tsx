@@ -44,7 +44,7 @@ interface ScheduleChange {
 }
 
 export default function Planner() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,7 +145,7 @@ export default function Planner() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ userId: user!.id }),
       });
@@ -181,7 +181,7 @@ export default function Planner() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify({ 
           userId: user!.id, 
