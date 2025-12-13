@@ -87,10 +87,10 @@ export function AIInsightsPanel({ onViewAnalysis }: AIInsightsPanelProps) {
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && session?.access_token) {
       fetchInsights();
     }
-  }, [user]);
+  }, [user, session?.access_token]);
 
   const getInsightIcon = (type: string) => {
     switch (type) {
