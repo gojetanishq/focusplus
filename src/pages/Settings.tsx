@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,12 @@ export default function Settings() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const { t, language, setLanguage, languageNames } = useLanguage();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
+  };
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<Profile>({
@@ -283,7 +290,7 @@ export default function Settings() {
 
           {/* Actions */}
           <div className="flex justify-between">
-            <Button variant="destructive" onClick={signOut}>
+            <Button variant="destructive" onClick={handleLogout}>
               {t("nav.logout")}
             </Button>
             <Button onClick={saveProfile} disabled={saving} className="focus-gradient gap-2">

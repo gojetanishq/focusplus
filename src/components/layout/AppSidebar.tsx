@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -24,8 +24,14 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { t } = useLanguage();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   const navItems = [
     { to: "/dashboard", icon: LayoutDashboard, labelKey: "nav.dashboard" },
@@ -106,7 +112,7 @@ export function AppSidebar({ collapsed, onToggle }: AppSidebarProps) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={signOut}
+            onClick={handleLogout}
             title={collapsed ? t("nav.logout") : undefined}
             className={cn(
               "w-full gap-2 text-muted-foreground hover:text-destructive",
