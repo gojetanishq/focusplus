@@ -48,17 +48,8 @@ export function FileGrid({ notes, folders, onSelectNote, onDeleteNote, onMoveToF
   };
 
   const getThumbnail = (note: Note) => {
-    if (note.file_url && note.file_type?.includes("image")) {
-      return (
-        <div className="h-24 w-full rounded-md overflow-hidden bg-muted mb-2">
-          <img
-            src={note.file_url}
-            alt={note.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      );
-    }
+    // Show icon for all files - images require signed URLs which need async fetching
+    // Full preview handles signed URL generation when a note is selected
     return (
       <div className="h-24 w-full rounded-md bg-muted/50 flex items-center justify-center mb-2">
         {getFileIcon(note.file_type)}

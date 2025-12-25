@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Download, X, Save, FileText, Image, File } from "lucide-react";
+import { Download, X, Save, FileText, Image, File, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { PdfViewer } from "@/components/notes/PdfViewer";
@@ -26,11 +26,46 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
   const [notes, setNotes] = useState(note.content || "");
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loadingUrl, setLoadingUrl] = useState(false);
 
   useEffect(() => {
     setNotes(note.content || "");
     setHasChanges(false);
   }, [note.id]);
+
+  // Generate signed URL for private file access
+  useEffect(() => {
+    const fetchSignedUrl = async () => {
+      if (!note.file_url) {
+        setSignedUrl(null);
+        return;
+      }
+      
+      // Check if it's already a full URL (legacy data) or a storage path
+      if (note.file_url.startsWith('http')) {
+        setSignedUrl(note.file_url);
+        return;
+      }
+      
+      setLoadingUrl(true);
+      try {
+        const { data, error } = await supabase.storage
+          .from('notes')
+          .createSignedUrl(note.file_url, 3600); // 1 hour expiry
+        
+        if (error) throw error;
+        setSignedUrl(data.signedUrl);
+      } catch (error) {
+        console.error('Error generating signed URL:', error);
+        toast({ title: 'Failed to load file', variant: 'destructive' });
+      } finally {
+        setLoadingUrl(false);
+      }
+    };
+    
+    fetchSignedUrl();
+  }, [note.file_url, note.id]);
 
   const handleNotesChange = (value: string) => {
     setNotes(value);
@@ -68,6 +103,25 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
       );
     }
 
+    if (loadingUrl) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin mb-4" />
+          <p className="text-sm">Loading file...</p>
+        </div>
+      );
+    }
+
+    if (!signedUrl) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <File className="h-16 w-16 mb-4" />
+          <p className="text-lg font-medium">Unable to load file</p>
+          <p className="text-sm">Please try again later</p>
+        </div>
+      );
+    }
+
     const fileType = note.file_type || "";
     const fileName = note.title.toLowerCase();
 
@@ -75,7 +129,7 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
       return (
         <div className="h-full flex items-center justify-center p-4 bg-muted/30">
           <img
-            src={note.file_url}
+            src={signedUrl}
             alt={note.title}
             className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
           />
@@ -85,14 +139,14 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
 
     if (fileType.includes("pdf")) {
       return (
-        <PdfViewer fileUrl={note.file_url!} title={note.title} />
+        <PdfViewer fileUrl={signedUrl} title={note.title} />
       );
     }
 
     if (fileType.includes("text") || fileType.includes("markdown")) {
       return (
         <iframe
-          src={note.file_url}
+          src={signedUrl}
           className="w-full h-full border-0 rounded-lg bg-background"
           title={note.title}
         />
@@ -115,7 +169,7 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
       fileName.endsWith(".ppt");
 
     if (isOfficeDoc) {
-      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(note.file_url)}`;
+      const viewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
       return (
         <iframe
           src={viewerUrl}
@@ -131,7 +185,7 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
         <File className="h-16 w-16 mb-4" />
         <p className="text-lg font-medium">{note.title}</p>
         <p className="text-sm mb-4">Preview not available for this file type</p>
-        <a href={note.file_url} target="_blank" rel="noopener noreferrer">
+        <a href={signedUrl} target="_blank" rel="noopener noreferrer">
           <Button>
             <Download className="h-4 w-4 mr-2" />
             Download File
@@ -158,8 +212,8 @@ export function FilePreview({ note, onClose, onUpdate }: FilePreviewProps) {
             <h2 className="font-semibold truncate max-w-md">{note.title}</h2>
           </div>
           <div className="flex items-center gap-2">
-            {note.file_url && (
-              <a href={note.file_url} target="_blank" rel="noopener noreferrer">
+            {signedUrl && (
+              <a href={signedUrl} target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" size="sm">
                   <Download className="h-4 w-4 mr-2" />
                   Download

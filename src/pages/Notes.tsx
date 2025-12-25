@@ -138,12 +138,11 @@ export default function Notes() {
 
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from("notes").getPublicUrl(fileName);
-
+      // Store just the file path, not public URL - we'll generate signed URLs on demand
       const { error: insertError } = await supabase.from("notes").insert({
         user_id: user!.id,
         title: file.name,
-        file_url: urlData.publicUrl,
+        file_url: fileName,
         file_type: file.type,
         folder_id: selectedFolderId,
       });
